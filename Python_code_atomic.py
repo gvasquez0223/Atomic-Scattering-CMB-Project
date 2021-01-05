@@ -14,16 +14,16 @@ eV_to_J = 1.602e-19
 S = 0.5
 I = 0.5
 
-numK = 2
+numK = 3
 numN = 10
-numL = numN - 1
+numL = numN 
 numJ = 2
 Nvar = 2
 
 # We want to develop a program where we can index our matrices correctly.
 
-rho_QK = np.zeros((numN, numL, numJ, numK, Nvar, Nvar))
-Lambda = np.zeros((numN, numN, numL, numL, numJ, numJ,numK, numK, Nvar, Nvar, Nvar, Nvar))
+rho_QK = np.zeros((numN, numL, numJ, numK, Nvar, Nvar), dtype = np.complex)
+Lambda = np.zeros((numN, numN, numL, numL, numJ, numJ,numK, numK, Nvar, Nvar, Nvar, Nvar), dtype = np.complex)
 
 def energy(n, l, J, I, F):
 	return -13.6*eV_to_J/(n+1)**2
@@ -72,7 +72,7 @@ def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 	return term1+term2+term3+term4
 
-def T_abs(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
+def T_A(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	
 	term1 = (2*J1+1)*B(n0,n1,l0,l1,J0,J1)
 	term2 = 0
@@ -87,18 +87,7 @@ def T_abs(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 	return term1*term2
 
-def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
-	
-	term1 = 0
 
-	if K0==K1:
-		term1 = (2*J1+1)*A(n0,n1,l0,l1, J0,J1)
-		term1 *= np.sqrt((2*F0+1)*(2*F1+1)*(2*F2+1)*(2*F3+1))
-		term1 *= (-1)**(1+K0+F1+F3)
-		term1 *= wigner_6j(F0,F1,K0,F3,F2,1)*wigner_6j(J1, J0, 1, F0, F2, I)
-		term1 *= wigner_6j(J1, J0, 1, F1, F3, I)
-
-	return term1
 
 def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	
@@ -117,9 +106,22 @@ def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 	return term1*term2
 
-
+def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	
 
+	term1 = 0
+
+	if K==K1:
+		
+		term1 = 2*J1 + 1
+		term1 *= A(n0, n1, l0, l1, J0, J1)
+		term1 *= np.sqrt( (2*F0+1)*(2*F1+1)*(2*F2+1)*(2*F3+1) )
+		term1 *= (-1)**(1+K0+F1+F3)
+		term1 *= wigner_6j(F0,F1,K0, F3, F2, 1)
+		term1 *= wigner_6j(J1, J0, 1, F0, F2, I)
+		term1 *= wigner_6j(J1, J0, 1, F1, F3, I)
+	
+	return term1
 
 			
 
@@ -127,8 +129,8 @@ def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 for i1 in range(numN):
 	for i2 in range(numN):
-		for l1 in range(numL):
-			for l2 in range(numL):
+		for l1 in range(numL-1):
+			for l2 in range(numL-1):
 				
 				
 				J1 = np.arange(np.abs(l1-S), l1+S+1, 1)
@@ -148,12 +150,39 @@ for i1 in range(numN):
 									for f2 in range(len(F2)):
 										for f3 in range(len(F3)):
 											for f4 in range(len(F4)):
-						
-												Lambda[i1, i2, l1, l2, j1, j2, k1, k2, f1, f2, f3, f4] = Nhat(i1, i2, l1, l2, J1[j1], J2[j2], k1, k2, F1[f1], F2[f2], F3[f3], F4[f4]) 
+
+
+												term = - 2*np.pi*complex(0,Nhat(i1, i2, l1, l2, J1[j1], J2[j2], k1, k2, F1[f1], F2[f2], F3[f3], F4[f4]))
+												#term += T_A(i1, i2, l1, l2, J1[j1], J2[j2], k1, k2, F1[f1], F2[f2], F3[f3], F4[f4])
+												#term += T_E(i1, i2, l1, l2, J1[j1], J2[j2], k1, k2, F1[f1], F2[f2], F3[f3], F4[f4])
+												#term += T_S(i1, i2, l1, l2, J1[j1], J2[j2], k1, k2, F1[f1], F2[f2], F3[f3], F4[f4])
+												
 						
 
 				
-			
+												Lambda[i1, i2, l1, l2, j1, j2, k1, k2, f1, f2, f3, f4] = term
+
+'''												
+	
+As written in equation 7.69, usually we write an evolution equation for a given set of alpha, J, I, K, and Q. We want to reference a given
+value by indexing from Lambda matrix correctly.
+
+Manually, we can set values of these variables and extract a given evolution matrix from that. Lets take these example values:
+'''
+
+n0 = 3
+l0 = 2
+j0 = 0 # Corresponds with J = L+S = 1.5
+k0 = 0 # Corresponds with K = 0
+f0 = 0 # Corresponds with F = J+I = 1
+f1 = 0 # Corresponds with F = J+I = 1
+
+
+evol_matrix = Lambda[n0][:][l0][:][j0][:][k0][:][f0][f1][:][:]
+
+
+	
+					
 
 
 
