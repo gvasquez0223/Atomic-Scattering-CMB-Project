@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.integrate as integrate
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
+from scipy.special import genlaguerre, gamma
 from sympy import N
 
 
@@ -9,10 +11,12 @@ Want to build a primer that dictates in our matrix which value of the quantum nu
 '''
 
 h = 6.626e-34 # Planck constant m^2 kg/s
-eV_to_J = 1.602e-19
+eV_to_J = 1.602e-19 # Converting from eV to Joules
+e0 = 1.602e-19 # Electron charge
+a0 = 5.29e-11 # Bohr radius 
 
-S = 0.5
-I = 0.5
+S = 0.5 # Spin Quantum Number
+I = 0.5 # Nuclear Quantum Number
 
 numK = 3
 numN = 10
@@ -27,6 +31,44 @@ Lambda = np.zeros((numN, numN, numL, numL, numJ, numJ,numK, numK, Nvar, Nvar, Nv
 
 def energy(n, l, J, I, F):
 	return -13.6*eV_to_J/(n+1)**2
+
+
+# Computes the dipole matrix elements for <alpha J I F f | d_{q}^{1} |alpha' J' I F' f>
+
+def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
+	
+	I = 0.5 # Nuclear spin component
+
+	# Computing the first term before determining <alpha J I F||vec{d}||alpha' J' I F'>
+	term1 = (-1)**(J0+I-f0)
+	term1 *= np.sqrt( (2*J0+1)*(2*F0+1)*(2*F1+1) )
+	term1 *= float(wigner_3j(F0, F1, 1, -f0, f1, 0))
+	term1 *= float(wigner_6j(J0, J1, 1, F1, F0, I))
+
+	# Computing the second term before determining <alpha J ||vec{d}||alpha' J'>
+	term2 = e0*(-1)**(J1+1)*np.sqrt(2*J1+1)
+	term2 *= float(wigner_3j(J0, J1, 1, 0, 0, 0))
+
+	# To compute <alpha||\vec{d} || alpha'> we need to compute an overlap integral
+	# between the two radial w.f.s and the radial vector r.
+
+	# First radial part 
+	WF0 = (1/n0) *np.sqrt( gamma(n0-l0) / gamma(n0+l0+1) ) 
+	L0= genlaguerre(n0-l0-1, 2*l0+1)
+
+	# Second radial part
+	WF1 = (1/n1) *np.sqrt( gamma(n1-l1) / gamma(n1+l1+1) ) 
+	L1 = genlaguerre(n1-l1-1, 2*l1+1)
+
+	# Computing overlap integral
+	overlap = integrate.quad(lambda x: (2*x/n0)**(l0+1)* np.exp(-x/n0)*(2*x/n0)**(l1+1)* np.exp(-x/n1)*L0(x/n0)*L1(x/n1) * x**3,0,100 )
+
+	# Integral result multiplied by numerical factors
+	int_result = overlap[0]
+	int_result *= WF0*WF1
+
+	return term1*term2*int_result*a0
+
 
 def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
