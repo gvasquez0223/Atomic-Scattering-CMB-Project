@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
+import fractions
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
-from scipy.special import genlaguerre, gamma
+from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln
 from sympy import N
+
 
 
 '''
@@ -11,9 +13,11 @@ Want to build a primer that dictates in our matrix which value of the quantum nu
 '''
 
 h = 6.626e-34 # Planck constant m^2 kg/s
+hbar = h/(2*np.pi)
 eV_to_J = 1.602e-19 # Converting from eV to Joules
 e0 = 1.602e-19 # Electron charge
 a0 = 5.29e-11 # Bohr radius 
+epsilon0 = 8.854e-12 # Epsilon 0 in units of F m^-1
 
 S = 0.5 # Spin Quantum Number
 I = 0.5 # Nuclear Quantum Number
@@ -35,9 +39,11 @@ def energy(n, l, J, I, F):
 
 # Computes the dipole matrix elements for <alpha J I F f | d_{q}^{1} |alpha' J' I F' f>
 
+
 def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 	
 	I = 0.5 # Nuclear spin component
+	e0 = 1.602e-19 # Electron charge
 
 	# Computing the first term before determining <alpha J I F||vec{d}||alpha' J' I F'>
 	term1 = (-1)**(J0+I-f0)
@@ -49,6 +55,7 @@ def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 	term2 = e0*(-1)**(J1+1)*np.sqrt(2*J1+1)
 	term2 *= float(wigner_3j(J0, J1, 1, 0, 0, 0))
 
+	'''
 	# To compute <alpha||\vec{d} || alpha'> we need to compute an overlap integral
 	# between the two radial w.f.s and the radial vector r.
 
@@ -60,14 +67,37 @@ def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 	WF1 = (1/n1) *np.sqrt( gamma(n1-l1) / gamma(n1+l1+1) ) 
 	L1 = genlaguerre(n1-l1-1, 2*l1+1)
 
+	'''
+
+	# Computing <alpha|| \vec{d} || alpha'> we can use the definition given
+
+	if l0 == l1 + 1 or l0 == l1 - 1:
+	
+		term3 = complex(0,1)
+		term3 *= np.sqrt(l0)*(-1)**(n1-1)/(4* factorial(2*l0+1))
+		term3 *= np.exp( 0.5*gammaln(n0+l0) + 0.5*gammaln(n1+l0-1) - 0.5*gammaln(n0-l0-1) - 0.5*gammaln(n1-1) )
+		term3 *= (4*n0*n1)**(l0+1) * (n0-n1)**(n0+n1-2*l0-2) / (n0+n1)**(n0+n1)
+		term3 *= ( hyp2f1(-n0+l0+1, -n1+l0, 2*l0, -4*n0*n1/(n0-n1)**2 ) - (n0-n1)**2/(n0+n1)**2 * hyp2f1(-n0+l0-1, -n1+l0, 2*l0, -4*n0*n1/(n0-n1)**2 ) )
+
+	elif:
+		term3 = 0
+		
+
+	'''
 	# Computing overlap integral
 	overlap = integrate.quad(lambda x: (2*x/n0)**(l0+1)* np.exp(-x/n0)*(2*x/n0)**(l1+1)* np.exp(-x/n1)*L0(x/n0)*L1(x/n1) * x**3,0,100 )
+	
 
 	# Integral result multiplied by numerical factors
 	int_result = overlap[0]
 	int_result *= WF0*WF1
+	'''
 
-	return term1*term2*int_result*a0
+	return term1*term2*term3
+
+def reduced_dipole_element(n0, n1, l0, l1, J0, J1, freq):
+
+	
 
 
 def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
@@ -114,9 +144,20 @@ def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 	return term1+term2+term3+term4
 
-def T_A(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
+def T_A(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
 	
-	term1 = (2*J1+1)*B(n0,n1,l0,l1,J0,J1)
+
+	# Einstein Coefficients
+
+	omega = 2*np.pi*freq
+	
+	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	
+	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+
+
+	term1 = (2*J1+1)*B_Einstein
 	term2 = 0
 	
 	for Kr in range(3):
@@ -131,9 +172,19 @@ def T_A(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 
 
-def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
+def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
+
+	# Einstein Coefficients
+
+	omega = 2*np.pi*freq
 	
-	term1 = (2*J1+1)*B(n0,n1,l0,l1,J0,J1)
+	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	
+	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+
+	
+	term1 = (2*J1+1)*B_Einstein
 	term2 = 0
 	
 	for Kr in range(3):
@@ -148,7 +199,16 @@ def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 	return term1*term2
 
-def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
+def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
+
+	# Einstein Coefficients
+
+	omega = 2*np.pi*freq
+	
+	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	
+	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
 	
 
 	term1 = 0
@@ -156,7 +216,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	if K==K1:
 		
 		term1 = 2*J1 + 1
-		term1 *= A(n0, n1, l0, l1, J0, J1)
+		term1 *= A_Einstein
 		term1 *= np.sqrt( (2*F0+1)*(2*F1+1)*(2*F2+1)*(2*F3+1) )
 		term1 *= (-1)**(1+K0+F1+F3)
 		term1 *= wigner_6j(F0,F1,K0, F3, F2, 1)
@@ -165,8 +225,38 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	
 	return term1
 
-			
+def R_A(n, l, J, I, K0, K1, F0, F1, F2, F3, freq):
 
+
+	for n_level in range(Nmax+1):
+		for l_level in range(Nmax):
+			for j_index in range(2):
+				J_level = np.arange(np.abs(l_level - S), l_level + S, 1)
+
+
+			omega = 2*np.pi*freq
+	
+			A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+			A_Einstein *= np.abs( dipole_element(n, n_index, l, l_index, J0, J1, F0, F1, f0, f1) )**2
+	
+			B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein			
+	
+	# Einstein Coefficients
+
+
+
+
+	omega = 2*np.pi*freq
+	
+	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	
+	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+	
+
+
+	term1 = 2*J+1
+	ter
 
 
 for i1 in range(numN):
