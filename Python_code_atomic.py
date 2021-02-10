@@ -40,6 +40,34 @@ def energy(n, l, J, I, F):
 # Computes the dipole matrix elements for <alpha J I F f | d_{q}^{1} |alpha' J' I F' f>
 
 
+def dipole_element(n0, n1, l0, l1, J0, J1):
+
+	e0 = 1.602e-19 # Electron charge
+
+	# Computing the second term before determining <alpha J ||vec{d}||alpha' J'>
+	term1 = e0*(-1)**(J1+1)*np.sqrt(2*J1+1)
+	term1 *= float(wigner_3j(J0, J1, 1, 0, 0, 0))
+
+
+	# Computes the overlap integral
+	if l0 == l1 + 1 or l0 == l1 - 1:
+
+		term2 = (-1)**(n1-1)/(4* factorial(2*l0+1))
+		term2 *= np.exp( 0.5*gammaln(n0+l0) + 0.5*gammaln(n1+l0-1) - 0.5*gammaln(n0-l0-1) - 0.5*gammaln(n1-1) )
+		term2 *= (4*n0*n1)**(l0+1) * (n0-n1)**(n0+n1-2*l0-2) / (n0+n1)**(n0+n1)
+		term2 *= ( hyp2f1(-n0+l0+1, -n1+l0, 2*l0, -4*n0*n1/(n0-n1)**2 ) - (n0-n1)**2/(n0+n1)**2 * hyp2f1(-n0+l0-1, -n1+l0, 2*l0, -4*n0*n1/(n0-n1)**2 ) )
+
+	elif:
+		term2 = 0
+
+	return term1*term2
+		
+
+
+
+	
+
+'''
 def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 	
 	I = 0.5 # Nuclear spin component
@@ -83,7 +111,6 @@ def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 		term3 = 0
 		
 
-	'''
 	# Computing overlap integral
 	overlap = integrate.quad(lambda x: (2*x/n0)**(l0+1)* np.exp(-x/n0)*(2*x/n0)**(l1+1)* np.exp(-x/n1)*L0(x/n0)*L1(x/n1) * x**3,0,100 )
 	
@@ -91,13 +118,10 @@ def dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1):
 	# Integral result multiplied by numerical factors
 	int_result = overlap[0]
 	int_result *= WF0*WF1
-	'''
+
 
 	return term1*term2*term3
-
-def reduced_dipole_element(n0, n1, l0, l1, J0, J1, freq):
-
-	
+'''
 
 
 def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
@@ -152,7 +176,7 @@ def T_A(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
 	omega = 2*np.pi*freq
 	
 	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
-	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	A_Einstein *= np.abs( dipole_element(n0,n1,l0,l1, J0,J1) )**2
 	
 	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
 
@@ -179,7 +203,7 @@ def T_S(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
 	omega = 2*np.pi*freq
 	
 	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
-	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1) )**2
 	
 	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
 
@@ -206,7 +230,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
 	omega = 2*np.pi*freq
 	
 	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
-	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1) )**2
 	
 	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
 	
@@ -225,38 +249,132 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3, freq):
 	
 	return term1
 
-def R_A(n, l, J, I, K0, K1, F0, F1, F2, F3, freq):
+def R_A(n0, l0, J0, I, K0, K1, F0, F1, F2, F3, freq):
 
+B_sum = 0
+
+term1 = 0
+term2 = 0
+term3 = 0
+term4 = 0
 
 	for n_level in range(Nmax+1):
 		for l_level in range(Nmax):
 			for j_index in range(2):
 				J_level = np.arange(np.abs(l_level - S), l_level + S, 1)
 
-
-			omega = 2*np.pi*freq
+				omega = 2*np.pi*freq
 	
-			A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
-			A_Einstein *= np.abs( dipole_element(n, n_index, l, l_index, J0, J1, F0, F1, f0, f1) )**2
+				A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+				A_Einstein *= np.abs( dipole_element(n, n_index, l, l_index, J, J_level[j_index]) )**2
 	
-			B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein			
+				B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+
+				B_sum += B_Einstein	
 	
-	# Einstein Coefficients
-
-
-
-
-	omega = 2*np.pi*freq
+				
+				for Kr in range(3):
+					for Qr in range(3):
+						
+						term2 = np.sqrt(3*(2*K0+1)*(2*K1+1)*(2*Kr+1))
+						term2 *= (-1)**(1+J_level[j_index]-I+F0)
+						term2 *= wigner_6j(J0, J0, Kr, 1, 1, J_level[j_index])
+						term2 *= wigner_3j(K0, K1, Kr, 0,0,Qr)
 	
-	A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
-	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1, F0, F1, f0, f1) )**2
+						if F0 == F2:
+							term3 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
+							term3 *= wigner_6j(J0, J0, Kr, F3, F1, I)
+							term3 *= wigner_6j(K0, K1, Kr, F3, F1, F0)
+							term3 *= rad_field_tensor(Kr, n0, n1, l0, l1)
 	
-	B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+						elif F1 == F3:
+							term4 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
+							term4 *= (-1)**(F2 - F1 + K0 + K1 + Kr)
+							term4 *= wigner_6j(J0, J0, Kr, F2, F0, I)
+							term4 *= wigner_6j(K0, K1, Kr, F2, F0, F1)
+							term4 *= rad_field_tensor(Kr, n0, n1, l0, l1)
+
+		
+	term1 = (2*J0+1)*B_sum
 	
+return term1*term2*(term3 + term4)
 
 
-	term1 = 2*J+1
-	ter
+
+def R_E(n0, l0, J0, I, K0, K1, F0, F1, F2, F3, freq):
+
+A_sum = 0
+
+	if K0 == K1 and F0 == F2 and F1 == F3:
+
+		for n_level in range(Nmax+1):
+			for l_level in range(Nmax):
+				for j_index in range(2):
+					J_level = np.arange(np.abs(l_level - S), l_level + S, 1)
+
+					omega = 2*np.pi*freq
+	
+					A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+					A_Einstein *= np.abs( dipole_element(n, n_index, l, l_index, J, J_level[j_index]) )**2
+					A_sum += A_Einstein
+
+return A_sum
+
+def R_S(n0, l0, J0, I, K0, K1, F0, F1, F2, F3, freq):
+
+B_sum = 0
+
+term1 = 0
+term2 = 0
+term3 = 0
+term4 = 0
+
+	for n_level in range(Nmax+1):
+		for l_level in range(Nmax):
+			for j_index in range(2):
+				J_level = np.arange(np.abs(l_level - S), l_level + S, 1)
+
+				omega = 2*np.pi*freq
+
+				if J_level[j_index]
+	
+				A_Einstein = omega**3*e0**2 / (3*np.pi*epsilon0*hbar*c**3)
+				A_Einstein *= np.abs( dipole_element(n, n_index, l, l_index, J, J_level[j_index]) )**2
+	
+				B_Einstein = np.pi**2 * c**3 / (omega**3*hbar) * A_Einstein
+
+				B_sum += B_Einstein	
+	
+				
+				for Kr in range(3):
+					for Qr in range(3):
+						
+						term2 = np.sqrt(3*(2*K0+1)*(2*K1+1)*(2*Kr+1))
+						term2 *= (-1)**(1+J_level[j_index] - I + F0 +Kr)
+						term2 *= wigner_6j(J0, J0, Kr, 1, 1, J_level[j_index])
+						term2 *= wigner_3j(K0, K1, Kr, 0,0,Qr)
+	
+						if F0 == F2:
+							term3 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
+							term3 *= wigner_6j(J0, J0, Kr, F3, F1, I)
+							term3 *= wigner_6j(K0, K1, Kr, F3, F1, F0)
+							term3 *= rad_field_tensor(Kr, n0, n1, l0, l1)
+	
+						elif F1 == F3:
+							term4 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
+							term4 *= (-1)**(F2 - F1 + K0 + K1 + Kr)
+							term4 *= wigner_6j(J0, J0, Kr, F2, F0, I)
+							term4 *= wigner_6j(K0, K1, Kr, F2, F0, F1)
+							term4 *= rad_field_tensor(Kr, n0, n1, l0, l1)
+
+		
+	term1 = (2*J0+1)*B_sum
+	
+return term1*term2*(term3 + term4)
+
+
+
+		
 
 
 for i1 in range(numN):
@@ -294,23 +412,7 @@ for i1 in range(numN):
 				
 												Lambda[i1, i2, l1, l2, j1, j2, k1, k2, f1, f2, f3, f4] = term
 
-'''												
-	
-As written in equation 7.69, usually we write an evolution equation for a given set of alpha, J, I, K, and Q. We want to reference a given
-value by indexing from Lambda matrix correctly.
 
-Manually, we can set values of these variables and extract a given evolution matrix from that. Lets take these example values:
-'''
-
-n0 = 3
-l0 = 2
-j0 = 0 # Corresponds with J = L+S = 1.5
-k0 = 0 # Corresponds with K = 0
-f0 = 0 # Corresponds with F = J+I = 1
-f1 = 0 # Corresponds with F = J+I = 1
-
-
-evol_matrix = Lambda[n0][:][l0][:][j0][:][k0][:][f0][f1][:][:]
 
 
 	
