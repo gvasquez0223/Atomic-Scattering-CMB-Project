@@ -41,7 +41,7 @@ I = 0.5 # Nuclear spin quantum number
 # Values considered when summing over quantum numbers to determine Lmabdafortenight
 
                                                                                                           
-numN = 3 # Largest N value considered. Will go from 1 to Nmax.
+numN = 2 # Largest N value considered. Will go from 1 to Nmax.
 numL = numN # Largest L value considered.
 numJ = 2 # Number of allowed J values other than the L=0 case which there is only one.
 numK = 3 # Sum from 0 to 2
@@ -62,11 +62,11 @@ Matrix(N0, L0, J0, K0, F0, F1, N1, L1, J1, K1, F2, F3)
 '''
 
 
-Lambda0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN, numL, numJ, numK, numF, numF), dtype = np.complex)
+Lambda0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
-L0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN, numL, numJ, numK, numF, numF), dtype = np.complex)
+L0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
-L2 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN, numL, numJ, numK, numF, numF), dtype = np.complex)
+L2 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
 
 '''
@@ -94,13 +94,29 @@ def energy_noF(N, L, J):
 
 def energy(N, L, J, I, F):
 
+	alpha_e = 1/137
+	g = 0.5
+	m = 9.109e-31 # electron mass in kg
+	M_p = 1.673e-27 # proton mass in kg
+
 
 	# Unperturbed energy of the Hydrogen atom
-	energy_0th = -13.6*eV_to_J / N**2
+	energy_0th = -13.6*eV_to_J / N**2 
+	#energy_1st = 0
+
+
+	energy_1st = alpha_e**2*g*m/M_p
+	energy_1st *= F*(F+1) - I*(I+1) - J*(J+1)
+	energy_1st *= 1 / ( J*(J+1)*(2*L+1) )
+	energy_1st *= 1/N**3
+	energy_1st *= 13.6*eV_to_J
+
+	#print(energy_1st)
+	#print(energy_0th)
 
 	# NOTE: Need to add perturbed terms to this quantity later.
 
-	return energy_0th
+	return energy_0th + energy_1st
 
 
 '''
@@ -118,8 +134,8 @@ absolute value squared once you call this function for some set of (n0, l0, J0) 
 
 def dipole_element(n0, n1, l0, l1, J0, J1):
 
-	print("Dipole_term")
-	print(n0, n1, l0, l1, J0, J1)
+	#print("Dipole_term")
+	#print(n0, n1, l0, l1, J0, J1)
 
 	# We need to determine which set of quantum numbers is the upper or lower state.
 	# Also computes the prefactor.
@@ -244,8 +260,9 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 	weight = 2*h*freq**3/c**2
 	x = h*freq/(kB*T) # Ratio of photon energy with thermal energy
 
-	phase_space = np.exp(-x)/(1-np.exp(-x))
-	phase_deriv = -np.exp(-x)/(1-np.exp(-x))**2
+	if x > 0:
+		phase_space = np.exp(-x)/(1-np.exp(-x))
+		phase_deriv = -np.exp(-x)/(1-np.exp(-x))**2
 
 	# The variable "pert_index" let's us know if we want the perturbed or unperturbed value.
 	# If pert_index = False, then rad_field_tensor gives unperturbed value while pert_index = True
@@ -254,13 +271,13 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 	# Also, the value of K gives us which rad_field_Tensor we are interested in. Only the K=0,2 cases
 	# are nonzero.
 
-	if K==0 and pert_index == False:
+	if K==0 and freq > 0 and pert_index == False:
 		rad_field = weight*phase_space
 
-	elif K==0 and pert_index == True:
+	elif K==0 and freq > 0 and pert_index == True:
 		rad_field = weight*x*phase_deriv
 
-	elif K==2 and pert_index == True:
+	elif K==2 and freq>0 and pert_index == True:
 		rad_field = (1/np.sqrt(2)) * weight * x * phase_deriv 
 
 	else:
@@ -327,7 +344,7 @@ def Nhat(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	# Calculating the Bohr frequency nu_alphaJIF, alphaJIF'
 	if n0 == n1 and l0 == l1 and J0 == J1 and K0==K1 and F0==F2 and F1==F3:
 		term1 = energy(n0, l0, J0, I, F0) - energy(n1, l1, J1, I, F1)
-		term1 = term1/h
+		term1 = np.abs(term1)/h
 
 	
 	# Calculating more terms
@@ -634,7 +651,7 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 	term2 = 0
 	term3 = 0
 
-	for n_level in range(Nmax+1):
+	for n_level in range(1,Nmax+1,1):
 		for l_level in range(n_level):
 
 			# Composes allowed values of J given a value of L and S.
@@ -817,8 +834,8 @@ for N0 in range(1,numN+1):
 					for j1 in range(len(J1)):
 
 
-						'''
-
+						
+						print("State")
 						print(N0)
 						print(N1)
 						print(l0)
@@ -826,7 +843,7 @@ for N0 in range(1,numN+1):
 						print(J0[j0])
 						print(J1[j1])
 
-						'''
+						
 
 						# Calculating allowed values of F: F = J-0.5, J+0.5
 	
@@ -960,8 +977,8 @@ for N0 in range(1,numN+1):
 													#Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
 
 													if N1 < N0:
-														Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_unpert
-													elif N1 < N0:
+														Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_unpert 
+													elif N1 > N0:
 														Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TE_total + TS_unpert
 
 
@@ -971,7 +988,7 @@ for N0 in range(1,numN+1):
 
 													if N1 < N0:
 														L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_0
-													elif N1 < N0:
+													elif N1 > N0:
 														L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_0
 
  							
@@ -981,13 +998,13 @@ for N0 in range(1,numN+1):
 
 													if N1 < N0:
 														L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_2
-													elif N1 < N0:
+													elif N1 > N0:
 														L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_2
 
 
 # Setting each nonphysical value to np.nan
 
-'''
+
 for N0 in range(1,numN+1):
 	for N1 in range(1, num+1):
 		for l0 in range(numN):
@@ -1028,7 +1045,7 @@ for N0 in range(1,numN+1):
 						
 
 
-'''					
+					
 
 
 		
