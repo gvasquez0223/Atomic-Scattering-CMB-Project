@@ -257,7 +257,8 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 
 	# Strength of perturbation
 	
-	Theta_0 = 10**-3 
+	Theta_0 = 10**-3
+	Theta_2 = 10**-5
 
 	# Define a blackbody
 
@@ -282,7 +283,7 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 		rad_field = weight*x*phase_deriv*Theta_0
 
 	elif K==2 and freq>0 and pert_index == True:
-		rad_field = (1/np.sqrt(2)) * weight * x * phase_deriv 
+		rad_field = (1/np.sqrt(2)) * weight * x * phase_deriv*Theta_2
 
 	else:
 		rad_field = 0
