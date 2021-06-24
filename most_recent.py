@@ -19,8 +19,8 @@ h = 6.626e-27 # Planck constant ( erg*s or cm^2 g / s )
 hbar = h / (2*np.pi) # Reduced Planck constant in erg*s
 e0 = 4.8032e-10 # One unit of electric charge   ( cm^3/2 * g^1/2 / s )
 m_electron = 9.10938e-28 # Electron rest mass ( grams )
-eV_to_J = 1.60218e-19
-kB = 1.3806e-23
+eV_to_ergs = 1.60218e-12 # eV to ergs conversion 
+kB = 1.3807e-16 # Boltzmann constant (cm^2 g / s^2 K)
 
 # Variables to be determined before running the program
 
@@ -83,7 +83,7 @@ Output: Energy of a given level
 def energy_noF(N, L, J):
 
 	# Unperturbed energy of the Hydrogen atom
-	energy_0th = -13.6*eV_to_J / N**2
+	energy_0th = -13.6*eV_to_ergs / N**2
 
 	# NOTE: Need to add perturbed terms to this quantity later.
 
@@ -101,7 +101,7 @@ def energy(N, L, J, I, F):
 
 
 	# Unperturbed energy of the Hydrogen atom
-	energy_0th = -13.6*eV_to_J / N**2 
+	energy_0th = -13.6*eV_to_ergs / N**2 
 	#energy_1st = 0
 
 
@@ -109,7 +109,7 @@ def energy(N, L, J, I, F):
 	energy_1st *= F*(F+1) - I*(I+1) - J*(J+1)
 	energy_1st *= 1 / ( J*(J+1)*(2*L+1) )
 	energy_1st *= 1/N**3
-	energy_1st *= 13.6*eV_to_J
+	energy_1st *= 13.6*eV_to_ergs
 
 	#print(energy_1st)
 	#print(energy_0th)
@@ -255,6 +255,10 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 	freq = energy_noF(n0, l0, J0) - energy_noF(n1, l1, J1)
 	freq = np.abs(freq)/h
 
+	# Strength of perturbation
+	
+	Theta_0 = 10**-3 
+
 	# Define a blackbody
 
 	weight = 2*h*freq**3/c**2
@@ -275,7 +279,7 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 		rad_field = weight*phase_space
 
 	elif K==0 and freq > 0 and pert_index == True:
-		rad_field = weight*x*phase_deriv
+		rad_field = weight*x*phase_deriv*Theta_0
 
 	elif K==2 and freq>0 and pert_index == True:
 		rad_field = (1/np.sqrt(2)) * weight * x * phase_deriv 
@@ -570,7 +574,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 		
 		term = 0
 
-	if energy(n0, l0, J0, I, F0) > energy(n1, l1, J1, I, F1):
+	if np.abs(energy(n0, l0, J0, I, F0)) > np.abs(energy(n1, l1, J1, I, F1)):
 		
 		n = n1
 		l = l1
@@ -599,7 +603,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 			term *= float( wigner_6j(J_u, J, 1, F_prime, F_uprime, I) )
 	
 
-	elif energy(n0, l0, J0, I, F0) < energy(n1, l1, J1, I, F1):
+	elif np.abs(energy(n0, l0, J0, I, F0)) < np.abs(energy(n1, l1, J1, I, F1)):
 
 		n = n0
 		l = l0
@@ -864,22 +868,22 @@ for N0 in range(1,numN+1):
 
 													
 
-													#print("Outside if statement")
+													print("Outside if statement")
 
-													#print(N0,N1,l0,l1, J0[j0],J1[j1])
+													print(N0,N1,l0,l1, J0[j0],J1[j1])
 																														
-													#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
+													print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
 	
-													#print( time.asctime(time.localtime(time.time())))
+													print( time.asctime(time.localtime(time.time())))
 
 													if N0 == N1 and l0==l1 and J0[j0]==J1[j1]:
 
-														#print("Inside if statement")
+														print("Inside if statement")
 
-														#print( time.asctime(time.localtime(time.time())))
+														print( time.asctime(time.localtime(time.time())))
 
-														#print(N0,N1,l0,l1, J0[j0],J1[j1])
-														#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
+														print(N0,N1,l0,l1, J0[j0],J1[j1])
+														print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
 
 													
 
@@ -1006,7 +1010,7 @@ for N0 in range(1,numN+1):
 
 
 for N0 in range(1,numN+1):
-	for N1 in range(1, num+1):
+	for N1 in range(1, numN+1):
 		for l0 in range(numN):
 			for l1 in range(numN):
 
