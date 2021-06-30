@@ -648,15 +648,16 @@ Will discuss this detail at a later date with my code.
 def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
 
-	Nmax = 100 # Total number of different values of n we are considering.
+	Nmax = 3 # Total number of different values of n we are considering.
 
 	# Define 3 terms to make the calculation easier
 
 	term1 = 0
 	term2 = 0
 	term3 = 0
+	total_term = 0
 
-	for n_level in range(1,Nmax+1,1):
+	for n_level in range(1,Nmax+1):
 		for l_level in range(n_level):
 
 			# Composes allowed values of J given a value of L and S.
@@ -673,6 +674,9 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 				if n_level > n:
 					if l_level == l-1 or l_level == l or l_level == l+1:
 
+						print("Atomic levels (n,l,J_u)")
+						print(n_level,l_level,J_u)
+
 						B_Einstein = 32*np.pi**4 / (3*h**2*c)
 						B_Einstein *= np.abs( dipole_element(n_level, n, l_level, l, J_u, J) )**2
 	
@@ -683,23 +687,29 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 						term1 *= (-1)**(1+J_u-I+F0)
 						term1 *= float( wigner_6j(J, J, Kr, 1, 1, J_u) )
 						term1 *= float( wigner_3j(K, K_prime, Kr, 0,0, 0) )
+						term1 *=(2*J+1)
+						print("This is term1")
+						print(term1)
 	
 						if F0 == F2:
 							term2 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
 							term2 *= float( wigner_6j(J, J, Kr, F3, F1, I) )
 							term2 *= float( wigner_6j(K, K_prime, Kr, F3, F1, F0) )
 							term2 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_u, T, pert_index)
+							print("This is term2")
+							print(term2)
 						if F1 == F3:
 							term3 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
 							term3 *= (-1)**(F2 - F1 + K + K_prime + Kr)
 							term3 *= float( wigner_6j(J, J, Kr, F2, F0, I) )
 							term3 *= float( wigner_6j(K, K_prime, Kr, F2, F0, F1) )
 							term3 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_u, T, pert_index)
+							print("This is term3")
+							print(term3)
 
-		
-	term1 *= (2*J + 1) # Multiplying by a prefactor
-	
-	return term1*(term2 + term3)
+						total_term += term1*(term2+term3)
+
+	return total_term
 
 
 
@@ -754,6 +764,7 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 	term1 = 0
 	term2 = 0
 	term3 = 0
+	total_term = 0
 
 	for n_level in range(1,Nmax+1):
 		for l_level in range(n_level):
@@ -773,6 +784,10 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 				if n_level < n:
 					if l_level == l-1 or l_level == l or l_level == l+1:
 
+						print("Atomic levels (n,l,J_l)")
+						print(n_level,l_level,J_l)
+
+
 						# Calculate frequency
 
 						freq = energy_noF(n, l, J) - energy_noF(n_level, l_level, J_l)
@@ -788,12 +803,17 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 						term1 *= (-1)**(1+J_l - I + F0 +Kr)
 						term1 *= float( wigner_6j(J, J, Kr, 1, 1, J_l) )
 						term1 *= float( wigner_3j(K, K_prime, Kr, 0,0,0) )
+						term1 *= (2*J+1) #Prefactor
+						print("This is term1")
+						print(term1)
 	
 						if F0 == F2:
 							term2 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
 							term2 *= float( wigner_6j(J, J, Kr, F3, F1, I) )
 							term2 *= float( wigner_6j(K, K_prime, Kr, F3, F1, F0) )
 							term2 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_l, T, pert_index)
+							print("This is term2")
+							print(term2)
 	
 						if F1 == F3:
 							term3 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
@@ -801,11 +821,14 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 							term3 *= float( wigner_6j(J, J, Kr, F2, F0, I) )
 							term3 *= float( wigner_6j(K, K_prime, Kr, F2, F0, F1) )
 							term3 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_l, T, pert_index)
+							print("This is term3")
+							print(term3)
+						
+						total_term += term1*(term2+term3) # Summing each term.
 
-		
-	term1 *= (2*J+1) # Prefactor we need to include
+
 	
-	return term1*(term2 + term3)
+	return total_term
 
 
 
