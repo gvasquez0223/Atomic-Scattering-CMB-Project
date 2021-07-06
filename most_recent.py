@@ -134,6 +134,40 @@ absolute value squared once you call this function for some set of (n0, l0, J0) 
 
 def dipole_element(n0, n1, l0, l1, J0, J1):
 
+	if l0 == l1-1 and n0 != n1:
+
+		l = l1
+		n = n1
+		n_prime = n0
+
+		term = np.sqrt(l)/np.sqrt(2*l+1)
+		term *= (-1)**(n_prime-1) / (4*factorial(2*l-1))
+		term *= np.exp( 0.5*gammaln(n+l+1) + 0.5*gammaln(n_prime+l) - 0.5*gammaln(n-l) - 0.5*gammaln(n_prime-l+1) )
+		term *= (4*n*n_prime)**(l+1) * (n-n_prime)**(n+n_prime-2*l-2) / (n+n_prime)**(n+n_prime)
+		term *= ( hyp2f1(-n+l+1, -n_prime+l, 2*l, -4*n*n_prime/(n-n_prime)**2 ) - (n-n_prime)**2/(n+n_prime)**2 * hyp2f1(-n+l-1, -n_prime+l, 2*l, -4*n*n_prime/(n-n_prime)**2) )
+
+
+	elif l0 == l1+1 and n0 != n1:
+
+		l = l0
+		n = n0
+		n_prime = n1
+
+		term = np.sqrt(l)/np.sqrt(2*l+1)
+		term *= (-1)**(n_prime-1) / (4*factorial(2*l-1))
+		term *= np.exp( 0.5*gammaln(n+l+1) + 0.5*gammaln(n_prime+l) - 0.5*gammaln(n-l) - 0.5*gammaln(n_prime-l+1) )
+		term *= (4*n*n_prime)**(l+1) * (n-n_prime)**(n+n_prime-2*l-2) / (n+n_prime)**(n+n_prime)
+		term *= ( hyp2f1(-n+l+1, -n_prime+l, 2*l, -4*n*n_prime/(n-n_prime)**2 ) - (n-n_prime)**2/(n+n_prime)**2 * hyp2f1(-n+l-1, -n_prime+l, 2*l, -4*n*n_prime/(n-n_prime)**2) )
+
+	else:
+
+		term = 0
+
+	return Bohr_radius*e0*term 
+
+'''
+def dipole_element(n0, n1, l0, l1, J0, J1):
+
 	#print("Dipole_term")
 	#print(n0, n1, l0, l1, J0, J1)
 
@@ -186,7 +220,7 @@ def dipole_element(n0, n1, l0, l1, J0, J1):
 		term2 = 0
 
 	return Bohr_radius*e0*term1*term2
-
+'''
 '''
 def dipole_element(n0, n1, l, lprime, J0, J1):
 
