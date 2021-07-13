@@ -95,7 +95,7 @@ def energy_noF(N, L, J):
 def energy(N, L, J, I, F):
 
 	alpha_e = 1/137
-	g = 0.5
+	g = 2
 	m = 9.109e-31 # electron mass in kg
 	M_p = 1.673e-27 # proton mass in kg
 
@@ -359,19 +359,10 @@ Output:
 def T_A(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 
 
-	# Calculating the appropriate Einstein coefficients
-
-	B_Einstein = 32*np.pi**4 / (3*h**2*c)
-	B_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1) )**2
-	print("This is the B Einstein coefficient:", B_Einstein)
-
-	term1 = (2*J0 + 1)*B_Einstein # Prefactor to the sum
-	
-
 
 	# We need to isolate which state is the lower state.
 
-	if energy(n0, l0, J0, I, F0) >= energy(n1, l1, J1, I, F1):
+	if energy(n0, l0, J0, I, F0) <= energy(n1, l1, J1, I, F1):
 
 		term1 = 0
 		term2 = 0 
@@ -379,19 +370,27 @@ def T_A(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 	else:
 		
 
-		n = n1
-		l = l1
-		J = J1
-		K = K1
-		F = F2
-		F_prime = F3
+		n = n0
+		l = l0
+		J = J0
+		K = K0
+		F = F1
+		F_prime = F2
 
-		n_l = n0
-		l_l = l0
-		J_l = J0
-		K_l = K0
-		F_l = F0
-		F_lprime = F1
+		n_l = n1
+		l_l = l1
+		J_l = J1
+		K_l = K1
+		F_l = F1
+		F_lprime = F2
+
+		# Calculating the appropriate Einstein coefficients
+
+		B_Einstein = 32*np.pi**4 / (3*h**2*c)
+		B_Einstein *= np.abs( dipole_element(n_l, n, l_l, l, J_l, J) )**2
+		#print("This is the B Einstein coefficient:", B_Einstein)
+
+		term1 = (2*J_l + 1)*B_Einstein # Prefactor to the sum
 
 
 		term2 = 0 # Value of the sum across K_r 
@@ -413,44 +412,44 @@ def T_A(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 
 
 
-def T_S(n0, n1, l0, l1, J0, J1, K0, K1,Kr, F0, F1, F2, F3, pert_index):
-
-	# Calculating the appropriate Einstein coefficients
-	
-	B_Einstein = 32*np.pi**4 / (3*h**2*c)
-	B_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1) )**2
-	print("This is the B Einstein coefficient:", B_Einstein)
+def T_S(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 
 
-	term1 = (2*J0 + 1)*B_Einstein # Prefactor to the sum
+ # Prefactor to the sum
 	term2 = 0 # Value of the sum across K_r 
 
 
 	# We need to isolate which state is the upper state.
 
-	if energy(n0, l0, J0, I, F0) <= energy(n1, l1, J1, I, F1):
+	if energy(n1, l1, J1, I, F1) <= energy(n0, l0, J0, I, F0):
 	
 		term1 = 0
 		term2 = 0
 
-	elif energy(n0, l0, J0, I, F0) > energy(n1, l1, J1, I, F1):
+	elif energy(n1, l1, J1, I, F1) > energy(n0, l0, J0, I, F0):
 		
-		n = n1
-		l = l1
-		J = J1
-		K = K1
-		F = F2
-		F_prime = F3
+		n = n0
+		l = l0
+		J = J0
+		K = K0
+		F = F0
+		F_prime = F1
 
-		n_u = n0
-		l_u = l0
-		J_u = J0
-		K_u = K0
-		F_u = F0
-		F_uprime = F1
+		n_u = n1
+		l_u = l1
+		J_u = J1
+		K_u = K1
+		F_u = F2
+		F_uprime = F3
 
-
+		# Calculating the appropriate Einstein coefficients
 	
+		B_Einstein = 32*np.pi**4 / (3*h**2*c)
+		B_Einstein *= np.abs( dipole_element(n_u, n, l_u, l, J_u, J) )**2
+		term1 = (2*J_u + 1)*B_Einstein
+
+		#print("This is the B Einstein coefficient:", B_Einstein)
+
 		# Computing the sum across K_r from 0 to 2 where Q_r=0 is fixed.
 
 
@@ -475,33 +474,34 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 	freq = energy_noF(n0, l0, J0) - energy_noF(n1, l1, J1)
 	freq = np.abs(freq)/h
 
-	# Calculating the appropriate Einstein Coefficients
-
-	A_Einstein = 64*np.pi**4 * freq**3 / (3*h*c**3)
-	A_Einstein *= np.abs( dipole_element(n0, n1, l0, l1, J0, J1) )**2
-	print("This is the A Einstein coefficient:", A_Einstein)
-
 	# We need to determine which state is the upper state.
 
-	if energy(n0, l0, J0, I, F0) <= energy(n1, l1, J1, I, F1):
+	if energy(n1, l1, J1, I, F1) <= energy(n0, l0, J0, I, F0):
 		
 		term = 0
 
-	if energy(n0, l0, J0, I, F0) > energy(n1, l1, J1, I, F1):
-		
-		n = n1
-		l = l1
-		J = J1
-		K = K1
-		F = F2
-		F_prime = F3
+	if energy(n1, l1, J1, I, F1) > energy(n0, l0, J0, I, F0):
 
-		n_u = n0
-		l_u = l0
-		J_u = J0
-		K_u = K0
-		F_u = F0
-		F_uprime = F1
+		
+		n = n0
+		l = l0
+		J = J0
+		K = K0
+		F = F0
+		F_prime = F1
+
+		n_u = n1
+		l_u = l1
+		J_u = J1
+		K_u = K1
+		F_u = F2
+		F_uprime = F3
+
+		# Calculating the appropriate Einstein Coefficients
+
+		A_Einstein = 64*np.pi**4 * freq**3 / (3*h*c**3)
+		A_Einstein *= np.abs( dipole_element(n_u, n, l_u, l, J_u, J) )**2
+		#print("This is the A Einstein coefficient:", A_Einstein)
 
 		# Computing the term itself
 		term = 0
@@ -530,7 +530,7 @@ Will discuss this detail at a later date with my code.
 def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
 
-	Nmax = 3 # Total number of different values of n we are considering.
+	Nmax = numN+1 # Total number of different values of n we are considering.
 
 	# Define 3 terms to make the calculation easier
 
@@ -556,8 +556,8 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 				if n_level > n:
 					if l_level == l-1 or l_level == l or l_level == l+1:
 
-						print("Atomic levels (n,l,J_u)")
-						print(n_level,l_level,J_u)
+						#print("Atomic levels (n,l,J_u)")
+						#print(n_level,l_level,J_u)
 
 						B_Einstein = 32*np.pi**4 / (3*h**2*c)
 						B_Einstein *= np.abs( dipole_element(n, n_level, l, l_level, J, J_u) )**2
@@ -570,24 +570,24 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 						term1 *= float( wigner_6j(J, J, Kr, 1, 1, J_u) )
 						term1 *= float( wigner_3j(K, K_prime, Kr, 0,0, 0) )
 						term1 *=(2*J+1)
-						print("This is term1")
-						print(term1)
+						#print("This is term1")
+						#print(term1)
 	
 						if F0 == F2:
 							term2 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
 							term2 *= float( wigner_6j(J, J, Kr, F3, F1, I) )
 							term2 *= float( wigner_6j(K, K_prime, Kr, F3, F1, F0) )
 							term2 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_u, T, pert_index)
-							print("This is term2")
-							print(term2)
+							#print("This is term2")
+							#print(term2)
 						if F1 == F3:
 							term3 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
 							term3 *= (-1)**(F2 - F1 + K + K_prime + Kr)
 							term3 *= float( wigner_6j(J, J, Kr, F2, F0, I) )
 							term3 *= float( wigner_6j(K, K_prime, Kr, F2, F0, F1) )
 							term3 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_u, T, pert_index)
-							print("This is term3")
-							print(term3)
+							#print("This is term3")
+							#print(term3)
 
 						total_term += term1*(term2+term3)
 
@@ -597,7 +597,7 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
 def R_E(n, l, J, I, K, K_prime, F0, F1, F2, F3):
 
-	Nmax = 100 # Total number of principal quantum states being considered.
+	Nmax = numN+1 # Total number of principal quantum states being considered.
 
 	A_sum = 0 # Sum of Einstein A coefficients.
 
@@ -628,14 +628,14 @@ def R_E(n, l, J, I, K, K_prime, F0, F1, F2, F3):
 
 							# Compute Einstein A coefficient
 
-							print("Atomic levels (n,l,J_l)")
-							print(n_level,l_level,J_l)
+							#print("Atomic levels (n,l,J_l)")
+							#print(n_level,l_level,J_l)
 
 
 							A_Einstein = 64*np.pi**4 * freq**3 / (3*h*c**3)
 							A_Einstein *= np.abs( dipole_element(n, n_level, l, l_level, J, J_l) )**2
 
-							print("A Einstein coefficient:", A_Einstein)
+							#print("A Einstein coefficient:", A_Einstein)
 
 							A_sum += A_Einstein # Sum each allowed Einstein-A coefficient.
 
@@ -645,7 +645,7 @@ def R_E(n, l, J, I, K, K_prime, F0, F1, F2, F3):
 
 def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
-	Nmax = 3 # Total number of principal quantum states being considered.
+	Nmax = numN+1 # Total number of principal quantum states being considered.
 
 	# Define 3 terms to make the calculations easier.
 
@@ -672,8 +672,8 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 				if n_level < n:
 					if l_level == l-1 or l_level == l or l_level == l+1:
 
-						print("Atomic levels (n,l,J_l)")
-						print(n_level,l_level,J_l)
+						#print("Atomic levels (n,l,J_l)")
+						#print(n_level,l_level,J_l)
 
 
 						# Calculate frequency
@@ -692,16 +692,16 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 						term1 *= float( wigner_6j(J, J, Kr, 1, 1, J_l) )
 						term1 *= float( wigner_3j(K, K_prime, Kr, 0,0,0) )
 						term1 *= (2*J+1) #Prefactor
-						print("This is term1")
-						print(term1)
+						#print("This is term1")
+						#print(term1)
 	
 						if F0 == F2:
 							term2 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
 							term2 *= float( wigner_6j(J, J, Kr, F3, F1, I) )
 							term2 *= float( wigner_6j(K, K_prime, Kr, F3, F1, F0) )
 							term2 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_l, T, pert_index)
-							print("This is term2")
-							print(term2)
+							#print("This is term2")
+							#print(term2)
 	
 						if F1 == F3:
 							term3 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
@@ -709,8 +709,8 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 							term3 *= float( wigner_6j(J, J, Kr, F2, F0, I) )
 							term3 *= float( wigner_6j(K, K_prime, Kr, F2, F0, F1) )
 							term3 *= rad_field_tensor(Kr, n, n_level, l, l_level, J, J_l, T, pert_index)
-							print("This is term3")
-							print(term3)
+							#print("This is term3")
+							#print(term3)
 						
 						total_term += term1*(term2+term3) # Summing each term.
 
@@ -793,7 +793,11 @@ for N0 in range(1,numN+1):
 														#print("Inside if statement")
 
 														#print( time.asctime(time.localtime(time.time())))
+
+														print("############## New State ################")
+														print(" ")
 											
+			
 														print(" Overall States for the R's")
 														print("N0:",N0)
 														print("N1", N1)
@@ -804,16 +808,13 @@ for N0 in range(1,numN+1):
 														print("K0:", K0)
 														print("K1:", K1)
 														print("Kr:", Kr)
-														print("f1:", F0[f0])
-														print("f2:", F1[f1])
-														print("f3:", F2[f2])
-														print("f4:", F3[f3])
+														print("F1:", F0[f0])
+														print("F2:", F1[f1])
+														print("F3:", F2[f2])
+														print("F4:", F3[f3])
 
 														#print(N0,N1,l0,l1, J0[j0],J1[j1])
 														#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
-
-														print(" ")
-														print("Terms for these parameters:")
 
 														Nhat_total = Nhat(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
 														Nhat_total *= -2*np.pi*complex(0,1)
@@ -871,18 +872,11 @@ for N0 in range(1,numN+1):
 
 
 
-
-
-				
-
-
 														
 
-													# Computing the unpreturbed portion.
+													# Computing the T's.
 
-													# Nhat term
-
-
+													print(" ")
 													print(" Overall States for the T's")
 													print("N0:",N0)
 													print("N1", N1)
@@ -893,10 +887,10 @@ for N0 in range(1,numN+1):
 													print("K0:", K0)
 													print("K1:", K1)
 													print("Kr:", Kr)
-													print("f1:", F0[f0])
-													print("f2:", F1[f1])
-													print("f3:", F2[f2])
-													print("f4:", F3[f3]) 											
+													print("F1:", F0[f0])
+													print("F2:", F1[f1])
+													print("F3:", F2[f2])
+													print("F4:", F3[f3]) 											
 
 
 
@@ -927,36 +921,40 @@ for N0 in range(1,numN+1):
 
 													# Compute the perturbed (K=0) terms
 
-													TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+													if Kr == 0:
 
-													print("TA_pert_0:", TA_pert_0)
+														TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														print("TA_pert_0:", TA_pert_0)
+	
+														TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													print("TS_pert_0:", TS_pert_0)
-													'''
+														print("TS_pert_0:", TS_pert_0)
+														'''
 
-													RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-													'''
+														RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														'''
 
 													# Compute the perturbed (K=2) terms
 
-													TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+													if Kr == 2:
 
-													print("TA_pert_2:", TA_pert_2)
+														TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														print("TA_pert_2:", TA_pert_2)
 
-													print("TA_pert_2:", TA_pert_2)
+														TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													'''
+														print("TA_pert_2:", TA_pert_2)
 
-													RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														'''
 
-													RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-													'''
+														RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+
+														RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														'''
 
 													'''
 													We want to now sort out which terms correspond to which elements 
@@ -997,7 +995,7 @@ for N0 in range(1,numN+1):
 
 
 
-
+'''
 for N0 in range(1,numN+1):
 	for N1 in range(1, numN+1):
 		for l0 in range(numN):
@@ -1038,7 +1036,7 @@ for N0 in range(1,numN+1):
 						
 
 
-					
+'''					
 
 
 		
