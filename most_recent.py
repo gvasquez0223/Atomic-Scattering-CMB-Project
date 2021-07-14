@@ -501,7 +501,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 		A_Einstein = 64*np.pi**4 * freq**3 / (3*h*c**3)
 		A_Einstein *= np.abs( dipole_element(n_u, n, l_u, l, J_u, J) )**2
-		#print("This is the A Einstein coefficient:", A_Einstein)
+		print("This is the A Einstein coefficient:", A_Einstein)
 
 		# Computing the term itself
 		term = 0
@@ -530,7 +530,7 @@ Will discuss this detail at a later date with my code.
 def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
 
-	Nmax = numN+1 # Total number of different values of n we are considering.
+	Nmax = numN # Total number of different values of n we are considering.
 
 	# Define 3 terms to make the calculation easier
 
@@ -597,7 +597,7 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 
 def R_E(n, l, J, I, K, K_prime, F0, F1, F2, F3):
 
-	Nmax = numN+1 # Total number of principal quantum states being considered.
+	Nmax = numN # Total number of principal quantum states being considered.
 
 	A_sum = 0 # Sum of Einstein A coefficients.
 
@@ -769,9 +769,17 @@ for N0 in range(1,numN+1):
 						F2 = np.arange(np.abs(J1[j1]-I), J1[j1]+I+1, 1)
 						F3 = F2
 
-						for K0 in range(numK):
-							for K1 in range(numK):
-								for Kr in range(numK):
+						for k0 in range(numK-1):
+
+							K0 = 2*k0 # K-value (skipping K0=1)
+	
+							for k1 in range(numK-1):
+
+								K1 = 2*k1 # K-value (skipping K0=1)
+
+								for kr in range(numK-1):
+
+									Kr = 2*kr # K-value (skipping K0=1)
 
 									for f0 in range(len(F0)):
 										for f1 in range(len(F1)):
@@ -788,30 +796,33 @@ for N0 in range(1,numN+1):
 	
 													#print( time.asctime(time.localtime(time.time())))
 
+													print("############## New State ################")
+													print(" ")
+											
+			
+													print("N0:",N0)
+													print("N1", N1)
+													print("L0:", l0)
+													print("L1:", l1)
+													print("J0:", J0[j0])
+													print("J1:", J1[j1])
+													print("K0:", K0)
+													print("K1:", K1)
+													print("Kr:", Kr)
+													print("F1:", F0[f0])
+													print("F2:", F1[f1])
+													print("F3:", F2[f2])
+													print("F4:", F3[f3])
+
 													if N0 == N1 and l0==l1 and J0[j0]==J1[j1]:
 
 														#print("Inside if statement")
 
 														#print( time.asctime(time.localtime(time.time())))
-
-														print("############## New State ################")
+															
 														print(" ")
-											
-			
-														print(" Overall States for the R's")
-														print("N0:",N0)
-														print("N1", N1)
-														print("L0:", l0)
-														print("L1:", l1)
-														print("J0:", J0[j0])
-														print("J1:", J1[j1])
-														print("K0:", K0)
-														print("K1:", K1)
-														print("Kr:", Kr)
-														print("F1:", F0[f0])
-														print("F2:", F1[f1])
-														print("F3:", F2[f2])
-														print("F4:", F3[f3])
+														print("R terms (and Nhat)")
+
 
 														#print(N0,N1,l0,l1, J0[j0],J1[j1])
 														#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
@@ -867,6 +878,13 @@ for N0 in range(1,numN+1):
 	
 														Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
 
+																									  
+														print (" ")				
+														print("Lambda0 term:", Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3])
+														print("L0 term:", L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
+
+														print("L2 term:", L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
+
 
 
 
@@ -876,78 +894,80 @@ for N0 in range(1,numN+1):
 
 													# Computing the T's.
 
-													print(" ")
-													print(" Overall States for the T's")
-													print("N0:",N0)
-													print("N1", N1)
-													print("L0:", l0)
-													print("L1:", l1)
-													print("J0:", J0[j0])
-													print("J1:", J1[j1])
-													print("K0:", K0)
-													print("K1:", K1)
-													print("Kr:", Kr)
-													print("F1:", F0[f0])
-													print("F2:", F1[f1])
-													print("F3:", F2[f2])
-													print("F4:", F3[f3]) 											
+													if N0 != N1:
+
+														print(" ")
+														print("T terms") 					
 
 
 
-													# Unperturbed or total T terms. Only T_E has no perturbed term.
+														# Unperturbed or total T terms. Only T_E has no perturbed term.
 
-													TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+														TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
 
-													print("TA_unpert:", TA_unpert)
+														print("TA_unpert:", TA_unpert)
 
-													TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+														TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
 
-													print("TS_unpert:", TS_unpert)
+														print("TS_unpert:", TS_unpert)
 
-													TE_total = T_E(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+														TE_total = T_E(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
 
-													print("TE_total:", TE_total)
+														print("TE_total:", TE_total)
 
-													# Unperturbed or total R terms. Only R_E has no perturbed term.
+														# Unperturbed or total R terms. Only R_E has no perturbed term.
 
-													'''
+														'''
 
-													RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+														RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
 
-													RS_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+														RS_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
 
-													RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-													'''
+														RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+														'''
 
-													# Compute the perturbed (K=0) terms
+														# Compute the perturbed (K=0) terms
 
-													if Kr == 0:
+														if Kr == 0:
 
-														TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+															TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-														print("TA_pert_0:", TA_pert_0)
+															print("TA_pert_0:", TA_pert_0)
 	
-														TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+															TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-														print("TS_pert_0:", TS_pert_0)
-														'''
+															print("TS_pert_0:", TS_pert_0)
 
-														RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+															if N1 < N0:
+																L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_0
+															elif N1 > N0:
+																L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_0
 
-														RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-														'''
+ 		
+															'''
 
-													# Compute the perturbed (K=2) terms
+															RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-													if Kr == 2:
+															RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
+															'''
 
-														TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+														# Compute the perturbed (K=2) terms
 
-														print("TA_pert_2:", TA_pert_2)
+														if Kr == 2:
 
-														TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+															TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
-														print("TA_pert_2:", TA_pert_2)
+															print("TA_pert_2:", TA_pert_2)
+
+															TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
+
+															print("TS_pert_2:", TS_pert_2)
+
+															if N1 < N0:
+																L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_2
+															elif N1 > N0:
+																L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_2
+
 
 														'''
 
@@ -956,39 +976,36 @@ for N0 in range(1,numN+1):
 														RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
 														'''
 
-													'''
-													We want to now sort out which terms correspond to which elements 
-													of each matrix.
-													'''
+														'''
+														We want to now sort out which terms correspond to which 														elements of each matrix.
+														'''
 
-													# Lambda0 matrix elements
+														# Lambda0 matrix elements
 
-													#Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
+														#Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
 
-													if N1 < N0:
-														Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_unpert 
-													elif N1 > N0:
-														Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TE_total + TS_unpert
+														if N1 < N0:
+															Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_unpert
+														
+														elif N1 > N0:
+															Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TE_total + TS_unpert
 
 
-													# L0 matrix elements
+														# L0 matrix elements
 
-													#L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_0 + RS_pert_0
+														#L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_0 + RS_pert_0
 
-													if N1 < N0:
-														L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_0
-													elif N1 > N0:
-														L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_0
+					
+														# L2 matrix elements
 
- 							
-													# L2 matrix elements
+														#L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_2 + RS_pert_2
 
-													#L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_2 + RS_pert_2
 
-													if N1 < N0:
-														L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_2
-													elif N1 > N0:
-														L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_2
+														print (" ")
+														print("Lambda0 term:", Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3])
+														print("L0 term:", L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
+
+														print("L2 term:", L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
 
 
 # Setting each nonphysical value to np.nan
