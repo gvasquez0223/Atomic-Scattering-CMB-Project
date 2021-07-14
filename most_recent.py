@@ -501,7 +501,7 @@ def T_E(n0, n1, l0, l1, J0, J1, K0, K1, F0, F1, F2, F3):
 
 		A_Einstein = 64*np.pi**4 * freq**3 / (3*h*c**3)
 		A_Einstein *= np.abs( dipole_element(n_u, n, l_u, l, J_u, J) )**2
-		print("This is the A Einstein coefficient:", A_Einstein)
+		#print("This is the A Einstein coefficient:", A_Einstein)
 
 		# Computing the term itself
 		term = 0
@@ -832,18 +832,20 @@ for N0 in range(1,numN+1):
 													
 														print("Nhat:", Nhat_total)
 
-														RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-														print("RA_unpert:", RA_unpert)
-
-														RS_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-														print("RS_unpert:", RS_unpert)
-
-														RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-
-														print("RE_total:", RE_total)
 
 														if Kr == 0:
+
+															RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+
+															print("RA_unpert:", RA_unpert)
+
+															RS_unpert = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+															print("RS_unpert:", RS_unpert)
+	
+															RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+
+															print("RE_total:", RE_total)
+
 
 
 															RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
@@ -856,6 +858,8 @@ for N0 in range(1,numN+1):
 															RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
 															print("RS_pert_0:", RS_pert_0)
+
+															Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
 
 															L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_0 + RS_pert_0
 
@@ -876,7 +880,7 @@ for N0 in range(1,numN+1):
 															L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_2 + RS_pert_2
 	
 	
-														Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
+
 
 																									  
 														print (" ")				
@@ -901,19 +905,7 @@ for N0 in range(1,numN+1):
 
 
 
-														# Unperturbed or total T terms. Only T_E has no perturbed term.
 
-														TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-														print("TA_unpert:", TA_unpert)
-
-														TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-														print("TS_unpert:", TS_unpert)
-
-														TE_total = T_E(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-
-														print("TE_total:", TE_total)
 
 														# Unperturbed or total R terms. Only R_E has no perturbed term.
 
@@ -929,6 +921,20 @@ for N0 in range(1,numN+1):
 														# Compute the perturbed (K=0) terms
 
 														if Kr == 0:
+
+															# Unperturbed or total T terms. Only T_E has no perturbed term.
+
+															TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+
+															print("TA_unpert:", TA_unpert)
+
+															TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+
+															print("TS_unpert:", TS_unpert)
+
+															TE_total = T_E(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+
+															print("TE_total:", TE_total)
 
 															TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
 
@@ -1006,6 +1012,8 @@ for N0 in range(1,numN+1):
 														print("L0 term:", L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
 
 														print("L2 term:", L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
+
+
 
 
 # Setting each nonphysical value to np.nan
