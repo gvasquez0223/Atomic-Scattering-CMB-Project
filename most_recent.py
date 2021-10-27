@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 import scipy.integrate as integrate
 import fractions
 import time
+from astropy.io import fits
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
 from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln
-from sympy import N
+
 
 
 '''
@@ -38,17 +39,23 @@ larmor_freq = 1.3996e6 * mag_field # Lahmor frequency ( s^-1 )
 S = 0.5 # Electron spin quantum number
 I = 0.5 # Nuclear spin quantum number
 
+
 # Values considered when summing over quantum numbers to determine Lmabdafortenight
 
                                                                                                           
-numN = 2 # Largest N value considered. Will go from 1 to Nmax.
+numN = 3 # Largest N value considered. Will go from 1 to Nmax.
 numL = numN # Largest L value considered.
 numJ = 2 # Number of allowed J values other than the L=0 case which there is only one.
-numK = 3 # Sum from 0 to 2
+numK = 2 # Sum from 0 to 2
 numF = 2 # Number of allowed F values given a value of J.
+
+# We want to seperate matrices for the 1s term and the excited states.
 
 
 # We want to develop a program where we can index our matrices correctly.
+
+# Creating a text file to put printed output
+
 
 
 '''
@@ -68,6 +75,75 @@ L0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, 
 
 L2 = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
+mask_array = np.zeros( (numN+1, numL, numJ, numK, numF, numF, numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+
+
+
+
+
+
+'''
+We want to define the matrix structure for the density matrix and the source function so that we can compute matrix
+multiplication.
+'''
+
+density_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+
+
+
+    
+def dipole_bf(Nmax, E_free):
+    
+    k = np.sqrt(E_free/13.6 ) # k^2 is the units of free energy the photon has
+    
+    dipole_bf_array = np.zeros( (Nmax+1,Nmax)) # We want to create an array with N-values of N and
+                                        # N-1 values of L
+    
+    # We want to calculate the g(n,n-1;k,n) term first.
+    
+    for N in range(1,Nmax+1,1):
+        g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
+        print(g_first)
+    
+    
+        g_first *= 1/np.sqrt(1- np.exp(-2*np.pi/k))
+        g_first *= np.exp(2*N - 2*np.arctan(N*k)/k) / (1+N**2*k**2)**(N+2)
+    
+        # Adding on the normalization constant
+    
+        for s in range(1,N+1,1):
+        
+            g_first *= np.sqrt(1+s**2*k**2)
+
+        # We want to calculate the g(n,n-2; k, n-1) term next
+        
+        g_second = 0.5*np.sqrt( (2*N-1)*(1+N**2 * k**2)) * g_first
+    
+        # We want to assign values to our array as output
+    
+        dipole_bf_array[N, N-1] = g_first
+        dipole_bf_array[N, N-2] = g_second
+    
+
+        # Recursion relation which loops backwards to find each next value.
+    
+        for L in range(N-2, -1, -1):
+        
+            g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
+            g_term *= g_second
+            g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
+            g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
+        
+            dipole_bf_array[N, L] = g_term
+        
+            g_first = g_second
+            g_second = g_term
+        
+    return dipole_bf_array
+        
+    
+    
 
 '''
 
@@ -179,6 +255,7 @@ def dipole_element(n0, n1, L0, L1, J0, J1):
 	return Bohr_radius*e0*term 
 
 
+
 	
 '''
 
@@ -242,7 +319,7 @@ def rad_field_tensor(K, n0, n1, l0, l1, J0, J1, T, pert_index):
 		rad_field = weight*x*phase_deriv*Theta_0
 
 	elif K==2 and freq>0 and pert_index == True:
-		rad_field = (1/np.sqrt(2)) * weight * x * phase_deriv*Theta_2
+		rad_field = (1/np.sqrt(2)) * weight*phase_space*Theta_2
 
 	else:
 		rad_field = 0
@@ -374,15 +451,15 @@ def T_A(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 		l = l0
 		J = J0
 		K = K0
-		F = F1
-		F_prime = F2
+		F = F0
+		F_prime = F1
 
 		n_l = n1
 		l_l = l1
 		J_l = J1
 		K_l = K1
-		F_l = F1
-		F_lprime = F2
+		F_l = F2
+		F_lprime = F3
 
 		# Calculating the appropriate Einstein coefficients
 
@@ -719,8 +796,100 @@ def R_S(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
 	return total_term
 
 
+# We want to make a mask for correct values.
+
+def mask_allowed(N_index, l_index, j_index, k_index, f0_index, f1_index):
+    
+
+    '''
+    if N_index > l_index and N_index > 1:
+        if l_index > 0:
+            physical_val = True
+        elif l_index == 0 and j_index == 0:
+            physical_val = True
+        else:
+            physical_val = False
+    elif l_index > N_index-1:
+        physical_val = False
+        
+        
+        
+    if k_index == 0 and f0_index != f1_index:
+        physical_val = False
+    elif k_index == 1 and l_index == 0  and f0_index + f1_index < 2:
+        physical_val = False
+    elif k_index == 1 and l_index == 1 and j_index == 0  and f0_index + f1_index < 2:
+        physical_val = False
+    else:
+        physical_val = True
+
+        
+    if N_index == 1 and l_index == 0 and k_index == 0 and f0_index == f1_index:
+        physical_val = True
+    elif N_index == 1 and l_index == 0 and k_index == 0 and f0_index + f1_index == 2:
+        physical_val = True
+    elif N_index == 1:
+        physical_val = False
+
+    
+    return physical_val 
+    '''
+    
+
+    physical_val = False
+    
+    if N_index > l_index and N_index > 1 and k_index == 0 and f0_index == f1_index:
+        if l_index > 0:
+            physical_val = True
+        elif l_index == 0 and j_index == 0:
+            physical_val = True
+
+    elif N_index > l_index and N_index > 1 and k_index == 1:
+        if l_index == 0 and j_index == 0 and f0_index + f1_index == 2:
+             physical_val = True
+        elif l_index == 1 and j_index == 0 and f0_index + f1_index == 2:
+            physical_val = True
+        elif l_index == 1 and j_index == 1:
+            physical_val = True
+        elif l_index > 1:
+            physical_val = True
+
+    elif N_index == 1 and l_index == 0 and j_index == 0 and k_index == 0 and f0_index == f1_index:
+        physical_val = True
+    elif N_index == 1 and l_index == 0 and j_index == 0 and k_index == 1 and f0_index + f1_index == 2:
+        physical_val = True
+
+
+
+    
+    return physical_val 
+
+def source_function_2photon(N, l, j, k, F0, F1, density_matrix):
+    
+    twophoton_rate = 8.22 # s^{-1}
+    energy_dif = 10.2*eV_to_ergs # Energy from n=2 to n=1
+    
+    
+    if N == 1 and L == 0 and J == 0.5:
+        source_term =twophoton_rate*density_matrix[N,l,j, k, f0, f1]
+    elif N == 2 and L == 0 and J == 0.5:
+        source_term = twophoton_rate* np.exp(energy_dif/(kB*T)) *density_matrix[N, l, j, k, f0, f1]
+    else:
+        source_term = 0
+        
+    return source_term
+
+
 
 '''
+We now want to input terms that contribute to the source function that we need to calculate.
+
+
+
+
+
+
+
 Portion of the code that organizes values from each of the seven functions: Nhat, T's, and R's into their respective matrices. Note
 that 
 
@@ -737,339 +906,627 @@ correspond with the RHS of equation 7.69.
 d/dt rho(N0, L0, J0, I, K0, Q0, F0, F1)  =  (Sum of quantum numbers) Lambda(N0,L0, J0, I, K0, Q0, F0, F1, N1, L1, J1, I, K1, Q1, F2, F3) * rho(N1, L1, J1, I, K1, Q1, F2, F3) 
 '''
 
-for N0 in range(1,numN+1):
-	for N1 in range(1,numN+1):
-		for l0 in range(N0):
-			for l1 in range(N1):
-			
-				# Computing allowed values of J: J = L-0.5, L+0.5
-				J0 = np.arange(np.abs(l0-S), l0+S+1, 1)
-				J1 = np.arange(np.abs(l1-S), l1+S+1, 1)
-
-				for j0 in range(len(J0)):
-					for j1 in range(len(J1)):
-
-
-						
-						#print(" Overall State")
-						#print("N0:",N0)
-						#print("N1", N1)
-						#print("L0:", l0)
-						#print("L1:", l1)
-						#print("J0:", J0[j0])
-						#print("J1:", J1[j1])
-
-						
-
-						# Calculating allowed values of F: F = J-0.5, J+0.5
-	
-						F0 = np.arange(np.abs(J0[j0]-I), J0[j0]+I+1,1)
-						F1 = F0
-		
-						F2 = np.arange(np.abs(J1[j1]-I), J1[j1]+I+1, 1)
-						F3 = F2
-
-						for k0 in range(numK-1):
-
-							K0 = 2*k0 # K-value (skipping K0=1)
-	
-							for k1 in range(numK-1):
-
-								K1 = 2*k1 # K-value (skipping K0=1)
-
-								for kr in range(numK-1):
-
-									Kr = 2*kr # K-value (skipping K0=1)
-
-									for f0 in range(len(F0)):
-										for f1 in range(len(F1)):
-											for f2 in range(len(F2)):
-												for f3 in range(len(F3)):
-
-													
-
-													#print("Outside if statement")
-
-													#print(N0,N1,l0,l1, J0[j0],J1[j1])
-																														
-													#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
-	
-													#print( time.asctime(time.localtime(time.time())))
-
-													print("############## New State ################")
-													print(" ")
-											
-			
-													print("N0:",N0)
-													print("N1", N1)
-													print("L0:", l0)
-													print("L1:", l1)
-													print("J0:", J0[j0])
-													print("J1:", J1[j1])
-													print("K0:", K0)
-													print("K1:", K1)
-													print("Kr:", Kr)
-													print("F1:", F0[f0])
-													print("F2:", F1[f1])
-													print("F3:", F2[f2])
-													print("F4:", F3[f3])
-
-													if N0 == N1 and l0==l1 and J0[j0]==J1[j1]:
-
-														#print("Inside if statement")
-
-														#print( time.asctime(time.localtime(time.time())))
-															
-														print(" ")
-														print("R terms (and Nhat)")
-
-
-														#print(N0,N1,l0,l1, J0[j0],J1[j1])
-														#print(K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3])
-
-														Nhat_total = Nhat(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-														Nhat_total *= -2*np.pi*complex(0,1)
-													
-														print("Nhat:", Nhat_total)
-
-
-														if Kr == 0:
-
-															RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-															print("RA_unpert:", RA_unpert)
-
-															RS_unpert = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-															print("RS_unpert:", RS_unpert)
-	
-															RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-
-															print("RE_total:", RE_total)
-
-
-
-															RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-
-															print("RA_pert_0:", RA_pert_0)
-
-
-
-															RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("RS_pert_0:", RS_pert_0)
-
-															Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
-
-															L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_0 + RS_pert_0
-
-														if Kr == 2:
-
-
-
-															RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("RA_pert_2:", RA_pert_2)
-
-
-
-															RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("RS_pert_2:", RS_pert_2)
-
-															L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_2 + RS_pert_2
-	
-	
-
-
-																									  
-														print (" ")				
-														print("Lambda0 term:", Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3])
-														print("L0 term:", L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
-
-														print("L2 term:", L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
-
-
-
-
-
-
-														
-
-													# Computing the T's.
-
-													if N0 != N1:
-
-														print(" ")
-														print("T terms") 					
-
-
-
-
-
-														# Unperturbed or total R terms. Only R_E has no perturbed term.
-
-														'''
-
-														RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-														RS_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-														RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-														'''
-
-														# Compute the perturbed (K=0) terms
-
-														if Kr == 0:
-
-															# Unperturbed or total T terms. Only T_E has no perturbed term.
-
-															TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-															print("TA_unpert:", TA_unpert)
-
-															TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
-
-															print("TS_unpert:", TS_unpert)
-
-															TE_total = T_E(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
-
-															print("TE_total:", TE_total)
-
-															TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("TA_pert_0:", TA_pert_0)
-	
-															TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("TS_pert_0:", TS_pert_0)
-
-															if N1 < N0:
-																L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_0
-															elif N1 > N0:
-																L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_0
-
- 		
-															'''
-
-															RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, 0, F0[f0], F1[f1], F2[f2], F3[f3], True)
-															'''
-
-														# Compute the perturbed (K=2) terms
-
-														if Kr == 2:
-
-															TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("TA_pert_2:", TA_pert_2)
-
-															TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-															print("TS_pert_2:", TS_pert_2)
-
-															if N1 < N0:
-																L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_pert_2
-															elif N1 > N0:
-																L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TS_pert_2
-
-
-														'''
-
-														RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-
-														RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, 2, F0[f0], F1[f1], F2[f2], F3[f3], True)
-														'''
-
-														'''
-														We want to now sort out which terms correspond to which 														elements of each matrix.
-														'''
-
-														# Lambda0 matrix elements
-
-														#Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += Nhat_total + RA_unpert + RS_unpert + RE_total
-
-														if N1 < N0:
-															Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TA_unpert
-														
-														elif N1 > N0:
-															Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += TE_total + TS_unpert
-
-
-														# L0 matrix elements
-
-														#L0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_0 + RS_pert_0
-
-					
-														# L2 matrix elements
-
-														#L2[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] += RA_pert_2 + RS_pert_2
-
-
-														print (" ")
-														print("Lambda0 term:", Lambda0[N0, l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3])
-														print("L0 term:", L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
-
-														print("L2 term:", L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] )
-
-
-
-
-# Setting each nonphysical value to np.nan
-
-
+output_file = open("output.txt", "w")
 
 '''
+array = np.zeros( (64,64))
+
+for N0 in range(2, numN+1):
+    for N1 in range(2, numN+1):
+        for l0 in range(numN):
+            for l1 in range(numN):
+                
+                J0 = np.arange( np.abs(l0-S), l0+S+1, 1)
+                J1 = np.arange( np.abs(l1-S), l1+S+1, 1)
+                
+                for j0 in range(len(J0)):
+                    for j1 in range(len(J1)):
+                        
+                        F0 = np.arange( np.abs(J0[j0]-I), J0[j0]+I+1, 1)
+                        F1 = F0
+                        
+                        F2 = np.arange( np.abs(J1[j1]-I), J1[j1]+I+1, 1)
+                        F3 = F2
+                        
+                        for k0 in range(numK):
+                            K0 = 2*k0
+                            
+                            for k1 in range(numK):
+                                K1 = 2*k1
+                                
+                                for kr in range(numK):
+                                    Kr = 2*kr
+                                    
+                                    for f0 in range(len(F0)):
+                                        for f1 in range(len(F1)):
+                                            for f2 in range(len(F2)):
+                                                for f3 in range(len(F3)):
+                                                    
+                                                    if masked_allowed(N0, l0, j0) == True and masked_allowed(N1, l1, j1) == True:
+                                                        
+                                                        array
+                                                        
+                                                        
+'''                                                       
+                                                       
+
+for N0 in range(1, numN+1):
+    for N1 in range(1, numN+1):
+        for l0 in range(N0):
+            for l1 in range(N1):
+                J0 = np.arange(np.abs(l0-S),l0+S+1,1 )
+                J1 = np.arange(np.abs(l1-S), l1+S+1,1)
+                        
+                for j0 in range(len(J0)):
+                    for j1 in range(len(J1)):
+                        F0 = np.arange(np.abs(J0[j0]-I), J0[j0]+I+1,1)
+                        F1 = F0
+                        
+                        F2 = np.arange(np.abs(J1[j1]-I), J1[j1]+I+1, 1)
+                        F3 = F2
+                        
+                        for k0 in range(numK):
+                            
+                            K0 = 2*k0
+                            
+                            for k1 in range(numK):
+                                
+                                K1 = 2*k1
+                                
+                                for kr in range(numK):
+                                    
+                                    Kr = 2*kr
+                                    
+                                    for f0 in range(len(F0)):
+                                        for f1 in range(len(F1)):
+                                            for f2 in range(len(F2)):
+                                                for f3 in range(len(F3)):
+                                                    
+                                                    # Assigning true and false values to the masked array
+                                                    
+                                                    if mask_allowed(N0, l0, j0, k0, f0, f1) == True and mask_allowed(N1, l1, j1, k1, f2, f3) == True:
+                                                        mask_array[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] = True
+                                                    else:
+                                                        mask_array[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] = False
+                                                        
+
+                                                    print("####### New State #####", file = output_file)
+                                                    print(" ", file = output_file)
+                                                    print("N0:"+str(N0), file = output_file)
+                                                    print("N1:"+str(N1), file = output_file)
+                                                    print("L0:"+str(l0), file = output_file)
+                                                    print("L1:"+str(l1), file = output_file)
+                                                    print("J0:"+str(J0[j0]), file = output_file)
+                                                    print("J1:"+str(J1[j1]), file = output_file)
+                                                    print("K0:"+str(K0), file = output_file)
+                                                    print("K1:"+str(K1), file = output_file)
+                                                    print("Kr:"+str(Kr), file = output_file)
+                                                    print("F0:"+str(F0[f0]), file = output_file)
+                                                    print("F1:"+str(F1[f1]), file = output_file)
+                                                    print("F2:"+str(F2[f2]), file = output_file)
+                                                    print("F3:"+str(F3[f3]), file = output_file)
+                                                    print(" ", file = output_file)
+                                                    
+                                                    print("##### Code Index #####", file = output_file)
+                                                    print(" ", file = output_file)
+                                                    print("N0:"+str(N0), file = output_file)
+                                                    print("N1:"+str(N1), file = output_file)
+                                                    print("L0:"+str(l0), file = output_file)
+                                                    print("L1:"+str(l1), file = output_file)
+                                                    print("j0:"+str(j0), file = output_file)
+                                                    print("j1:"+str(j1), file = output_file)
+                                                    print("k0:"+str(k0), file = output_file)
+                                                    print("k1:"+str(k1), file = output_file)
+                                                    print("kr:"+str(kr), file = output_file)
+                                                    print("f0:"+str(f0), file = output_file)
+                                                    print("f1:"+str(f1), file = output_file)
+                                                    print("f2:"+str(f2), file = output_file)
+                                                    print("f3:"+str(f3), file = output_file)
+                                                    print(" ", file = output_file)
+                                                    
+                                                    print("Mapping to 2D fits file", file = output_file)
+                                                    
+                                                    # Mapping from 12D array to 2D array. Where are the elements?
+                                                    
+                                                    if N1>1:
+                                                        element_x = 16*numN*(N1-2) + 16*l1 + 8*j1 + 4*k1 + 2*f2 + f3 + 1
+                                                        print("Nx (excited): "+str(element_x), file = output_file)                                                    
+                                                    else:
+                                                        element_x = 8*j1 + 4*k1 + 2*f2 + f3 + 1
+                                                        print("Nx (1s): "+str(element_x), file = output_file)
+                                                    
+                                                    if N0>1:
+                                                        element_y = 16*numN*(N0-2) + 16*l0 + 8*j0 + 4*k0 + 2*f0 + f1 + 1
+                                                        print("Ny (excited): "+str(element_y), file = output_file)                                                    
+                                                    else:
+                                                        element_y = 8*j0 + 4*k0 + 2*f0 + f1 + 1
+                                                        print("Ny (1s): "+str(element_y), file = output_file)                                                        
+                                                    
+                                                    
+
+
+                                                    
+                                        
+                                                
+                                                    
+
+                                                    if N0==N1 and l0==l1 and J0[j0]==J1[j1]:
+                                                        
+                                                        print(" ", file=output_file)
+                                                        print("R terms (and N hat)", file=output_file)
+                                                        
+                                                        Nhat_total = Nhat(N0,N1,l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+                                                        Nhat_total *= -2*np.pi*complex(0,1)
+                                                        
+                                                        print("Nhat: "+str(Nhat_total), file = output_file)
+                                                        
+                                                        if Kr==0:
+                                                            
+                                                            RA_unpert = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+                                                            RS_unpert = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+                                                            RE_total = R_E(N0, l0, J0[j0], I, K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+                                                
+                                                            RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                            RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                            
+                                                            print("RA_unpert: "+str(RA_unpert), file=output_file)
+                                                            print("RS_unpert: "+str(RS_unpert), file=output_file)
+                                                            print("RE_total: "+str(RE_total), file=output_file)
+                                                            
+                                                            print("RA_pert_0: "+str(RA_pert_0), file=output_file)
+                                                            print("RS_pert_0: "+str(RS_pert_0), file=output_file)
+                                                            
+                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total
+                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0
+                                                            
+                                                        if Kr==2:
+                                                            
+                                                            RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                            RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                            
+                                                            print("RA_pert_2: " +str(RA_pert_2), file=output_file)
+                                                            print("RS_pert_2: " +str(RS_pert_2), file=output_file)
+                                                            
+                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2
+                                                            
+                                                        print(" ", file = output_file)
+                                                        print("Lambda0: "+str(Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)
+                                                        print("L0: "+ str(L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)                                                                                                                        
+                                                        print("L2: "+ str(L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)                                                    
+
+                                                    elif N0 != N1:
+                                                            
+                                                            print(" ", file=output_file)
+                                                            print("T terms", file=output_file)
+                                                            
+                                                            if Kr == 0:
+                                                                
+                                                                TA_unpert = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+                                                                TS_unpert = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+                                                                TE_total = T_E(N0, N1, l0, l1 , J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3])
+                                                                
+                                                                TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                                TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
+                               
+                                                                print("TA_unpert: "+str(TA_unpert), file=output_file)
+                                                                print("TS_unpert: "+str(TS_unpert), file=output_file)
+                                                                print("TE_total: "+str(TE_total), file=output_file)
+                                                            
+                                                                print("TA_pert_0: "+str(TA_pert_0), file=output_file)
+                                                                print("TS_pert_0: "+str(TS_pert_0), file=output_file)
+                                                            
+                                                                if N1 < N0:
+                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_unpert
+                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_0
+                                                                elif N1 > N0:
+                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TE_total + TS_unpert
+                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_0
+                                                                    
+                                                            elif Kr == 2:
+                                                            
+                                                                TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                                TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
+ 
+                                                                
+                                                                print("TA_pert_2: "+str(TA_pert_2), file=output_file)
+                                                                print("TS_pert_2: "+str(TS_pert_2), file=output_file)    
+                                                                
+                                                                if N1 < N0:
+                                                                    L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_2
+                                                                elif N1 > N0:
+                                                                    L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_2
+                                                                    
+                                                            print("", file = output_file)
+                                                            print("Lambda0: "+str(Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)
+                                                            print("L0: "+str(L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)                                                                                                                        
+                                                            print("L2: "+str(L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)                                                    
+                                                          
+                                                                
+
+
+
+output_file.close()
+
+
+                                                        
+                                                                                                                       
+                                                                
+# We want to create a mask that dictates which values we can use or not use for our calculation
+
+'''
+
 for N0 in range(1,numN+1):
-	for N1 in range(1, numN+1):
-		for l0 in range(numN):
-			for l1 in range(numN):
+    for N1 in range(1,numN+1):
+        for l0 in range(numN):
+            for l1 in range(numN):
+                J0 = np.arange(np.abs(l0-S),l0+S+1,1 )
+                J1 = np.arange(np.abs(l1-S), l1+S+1,1)
+                        
+                for j0 in range(len(J0)):
+                    for j1 in range(len(J1)):
+                        F0 = np.arange(np.abs(J0[j0]-I), J0[j0]+I+1,1)
+                        F1 = F0
+                        
+                        F2 = np.arange(np.abs(J1[j1]-I), J1[j1]+I+1, 1)
+                        F3 = F2
+                        
+                        for k0 in range(numK):
+                            
+                            K0 = 2*k0
+                            
+                            for k1 in range(numK):
+                                
+                                K1 = 2*k1
+                                
+                                for kr in range(numK):
+                                    
+                                    Kr = 2*kr
+                                    
+                                    for f0 in range(len(F0)):
+                                        for f1 in range(len(F1)):
+                                            for f2 in range(len(F2)):
+                                                for f3 in range(len(F3)):
+                                                    
+                                                    if l0 > N0-1 or l1 >N1-1:
+                                                        
+                                                        Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        
+                                                    if  N0 > 1 and l0 == 0 and N1>1 and l1>0:
+                                                        Lambda0[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        
+                                                    if  N0 > 1 and l0 > 0 and N1>1 and l1 == 0:
+                                                        Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        
+                                                    
+                                                        
+                                                    if  N0 > 1 and l0 == 0 and N1 > 1 and l1 == 0:
 
-				# Computing allowed values of J: J = L-0.5, L+0.5
-				J0 = np.arange(np.abs(l0-S), l0+S+1, 1)
-				J1 = np.arange(np.abs(l1-S), l1+S+1, 1)
+                                                        Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, j0, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
 
-				for j0 in range(len(J0)):
-					for j1 in range(len(J1)):
+                                                        Lambda0[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, 1, k0, f0, f1, N1, l1, j1, k1, f2, f3] = np.nan                                                    
 
-						# Calculating allowed values of F: F = J-0.5, J+0.5
+                                                        Lambda0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                    
+                                                    
+                                                    if N0 == 1 and l0 == 0 and N1 == 1 and l1 == 1:
 
-	
-						F0 = np.arange(np.abs(J0[j0]-I), J0[j0]+I+1,1)
-						F1 = F0
-		
-						F2 = np.arange(np.abs(J1[j1]-I), J1[j1]+I+1, 1)
-						F3 = F2
-
-						for K0 in range(numK):
-							for K1 in range(numK):
-								for Kr in range(numK):
-
-									for f0 in range(len(F0)):
-										for f1 in range(len(F1)):
-											for f2 in range(len(F2)):
-												for f3 in range(len(F3)):
-												
-													if l0 > N0-1 or l1 > N1-1 or K0 == 1 or K1 == 1:
-
-														Lambda0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] = np.nan
-
-														L0[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] = np.nan
-
-														L2[N0,l0, j0, K0, f0, f1, N1, l1, j1, K1, f2, f3] = np.nan				
-						
+                                                        Lambda0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan   
 
 
-'''					
+                                                        Lambda0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L0[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                        L2[N0, l0, 1, k0, f0, f1, N1, l1, 1, k1, f2, f3] = np.nan
+                                                                                                      
+
+'''
 
 
-		
+# We want to partition this matrix into different terms depending on whether we are focusing on the 1s state or the excited states.
 
-						
+Lambda0_1s_1s = Lambda0[1:2,0:1,:,:,:,:,1:2,0:1,:,:,:,:]
+Lambda0_1s_exc = Lambda0[1:2,0:1,:,:,:,:,2:numN+1,:,:,:,:,:]
+Lambda0_exc_1s = Lambda0[2:numN+1,:,:,:,:,:,1:2,0:1,:,:,:]
+Lambda0_exc_exc = Lambda0[2:numN+1,:,:,:,:,:,2:numN+1,:,:,:,:,:]
+
+L0_1s_1s = L0[1:2,0:1,:,:,:,:,1:2,0:1,:,:,:,:]
+L0_1s_exc = L0[1:2,0:1,:,:,:,:,2:numN+1,:,:,:,:,:]
+L0_exc_1s = L0[2:numN+1,:,:,:,:,:,1:2,0:1,:,:,:]
+L0_exc_exc = L0[2:numN+1,:,:,:,:,:,2:numN+1,:,:,:,:,:]
+
+L2_1s_1s = L2[1:2,0:1,:,:,:,:,1:2,0:1,:,:,:,:]
+L2_1s_exc = L2[1:2,0:1,:,:,:,:,2:numN+1,:,:,:,:,:]
+L2_exc_1s = L2[2:numN+1,:,:,:,:,:,1:2,0:1,:,:,:]
+L2_exc_exc = L2[2:numN+1,:,:,:,:,:,2:numN+1,:,:,:,:,:]
+
+mask_array_1s_1s = mask_array[1:2,0:1,:,:,:,:,1:2,0:1,:,:,:,:]
+mask_array_1s_exc = mask_array[1:2,0:1,:,:,:,:,2:numN+1,:,:,:,:,:]
+mask_array_exc_1s = mask_array[2:numN+1,:,:,:,:,:,1:2,0:1,:,:,:]
+mask_array_exc_exc = mask_array[2:numN+1,:,:,:,:,:,2:numN+1,:,:,:,:,:]
 
 
-					
+
+
+# Next, we want to make each of these arrays into a 2-dim array so we can use matrix multiplication
+
+
+num_1s_phy = 3
+
+if numN == 2:
+    num_exc_phy = 12
+elif numN == 3:
+    num_exc_phy = 36
+else:
+    num_exc_phy = 12*(numN-1) + 36
+    
+
+'''
+if numN == 2:
+    num_exc_phy = 14
+elif numN  ==:
+    num_exc_phy = 14*(numN-1) + 16*(numN-2)
+'''
+    
+    
+
+num_1s_total = 16
+num_exc_total = 16*numN*(numN-1)
+
+
+    
+
+N_1s = 16 # Number of elements in the 1s aarray
+N_exc = 16*numN*(numN-1) # Number of elements of the excited state array
+
+Lambda0_1s_1s = Lambda0_1s_1s.reshape ( (N_1s,N_1s))
+Lambda0_1s_exc = Lambda0_1s_exc.reshape( (N_1s, N_exc))
+Lambda0_exc_1s = Lambda0_exc_1s.reshape ( (N_exc,N_1s))
+Lambda0_exc_exc = Lambda0_exc_exc.reshape( (N_exc, N_exc))
+
+L0_1s_1s = L0_1s_1s.reshape ( (N_1s,N_1s))
+L0_1s_exc = L0_1s_exc.reshape( (N_1s, N_exc))
+L0_exc_1s = L0_exc_1s. reshape( (N_exc, N_1s))
+L0_exc_exc = L0_exc_exc.reshape( (N_exc,N_exc))
+
+L2_1s_1s = L2_1s_1s.reshape ( (N_1s,N_1s))
+L2_1s_exc = L2_1s_exc.reshape( (N_1s, N_exc))
+L2_exc_1s = L2_exc_1s. reshape( (N_exc, N_1s))
+L2_exc_exc = L2_exc_exc.reshape( (N_exc,N_exc))
+
+
+mask_array_1s_1s = mask_array_1s_1s.reshape( (N_1s,N_1s) )
+mask_array_1s_exc = mask_array_1s_exc.reshape( (N_1s,N_exc) )
+mask_array_exc_1s = mask_array_exc_1s.reshape( (N_exc,N_1s) )
+mask_array_exc_exc = mask_array_exc_exc.reshape( (N_exc,N_exc) )
+
+
+Lambda0_exc_exc_masked = np.zeros( (num_exc_phy, num_exc_phy), dtype = np.complex)
+Lambda0_1s_exc_masked = np.zeros( (num_1s_phy, num_exc_phy), dtype = np.complex)
+Lambda0_exc_1s_masked = np.zeros( (num_exc_phy, num_1s_phy), dtype = np.complex)
+Lambda0_1s_1s_masked = np.zeros( (num_1s_phy, num_1s_phy), dtype = np.complex)
+
+L0_exc_exc_masked = np.zeros( (num_exc_phy, num_exc_phy), dtype = np.complex)
+L0_1s_exc_masked = np.zeros( (num_1s_phy, num_exc_phy), dtype = np.complex)
+L0_exc_1s_masked = np.zeros( (num_exc_phy, num_1s_phy), dtype = np.complex)
+L0_1s_1s_masked = np.zeros( (num_1s_phy, num_1s_phy), dtype = np.complex)
+
+
+L2_exc_exc_masked = np.zeros( (num_exc_phy, num_exc_phy), dtype = np.complex)
+L2_1s_exc_masked = np.zeros( (num_1s_phy, num_exc_phy), dtype = np.complex)
+L2_exc_1s_masked = np.zeros( (num_exc_phy, num_1s_phy), dtype = np.complex)
+L2_1s_1s_masked = np.zeros( (num_1s_phy, num_1s_phy), dtype = np.complex)
 
 
 
+# Masking each array
+
+# First masking the exc_exc array
+x_counter = 0
+y_counter = 0
+
+for i in range(N_exc):
+    for j in range(N_exc):
+        
+        if mask_array_exc_exc[i,j] == True:
+            Lambda0_exc_exc_masked[x_counter,y_counter] = Lambda0_exc_exc[i,j]
+            L0_exc_exc_masked[x_counter,y_counter] = L0_exc_exc[i,j]
+            L2_exc_exc_masked[x_counter,y_counter] = L2_exc_exc[i,j]
+ 
+            #print(x_counter)
+            #print(y_counter)
+            y_counter += 1
+            
+            
+            if y_counter == num_exc_phy:
+                x_counter += 1
+                y_counter = 0
+            
+# First masking the 1s_exc array
+
+x_counter = 0
+y_counter = 0
+
+for i in range(N_1s):
+    for j in range(N_exc):
+        
+        if mask_array_1s_exc[i,j] == True:
+            Lambda0_1s_exc_masked[x_counter,y_counter] = Lambda0_1s_exc[i,j]
+            L0_1s_exc_masked[x_counter,y_counter] = L0_1s_exc[i,j]
+            L2_1s_exc_masked[x_counter,y_counter] = L2_1s_exc[i,j]
+
+
+
+            #print(x_counter)
+            #print(y_counter)
+            y_counter += 1
+            
+            
+            if y_counter == num_exc_phy:
+                x_counter += 1
+                y_counter = 0
+
+# First masking the exc_1s array
+
+x_counter = 0
+y_counter = 0
+
+for i in range(N_exc):
+    for j in range(N_1s):
+        
+        if mask_array_exc_1s[i,j] == True:
+            
+            Lambda0_exc_1s_masked[x_counter,y_counter] = Lambda0_exc_1s[i,j]
+            L0_exc_1s_masked[x_counter,y_counter] = L0_exc_1s[i,j]
+            L2_exc_1s_masked[x_counter,y_counter] = L2_exc_1s[i,j]
+
+
+            #print(x_counter)
+            #print(y_counter)
+            y_counter += 1
+            
+            
+            if y_counter == num_1s_phy:
+                x_counter += 1
+                y_counter = 0
+
+
+# First masking the 1s_1s array
+
+x_counter = 0
+y_counter = 0
+
+for i in range(N_1s):
+    for j in range(N_1s):
+        
+        if mask_array_1s_1s[i,j] == True:
+            Lambda0_1s_1s_masked[x_counter,y_counter] = Lambda0_1s_1s[i,j]
+            L0_1s_1s_masked[x_counter,y_counter] = L0_1s_1s[i,j]
+            L2_1s_1s_masked[x_counter,y_counter] = L2_1s_1s[i,j]
+
+            #print(x_counter)
+            #print(y_counter)
+            y_counter += 1
+            
+            
+            if y_counter == num_1s_phy:
+                x_counter += 1
+                y_counter = 0
+
+
+# Saving into fits files for Lambda0
+
+hdu1 = fits.PrimaryHDU(np.abs(Lambda0_1s_1s_masked))
+hdu1.writeto("lambda0_1s_1s.fits", overwrite = True)
+
+hdu2 = fits.PrimaryHDU(np.abs(Lambda0_1s_exc_masked))
+hdu2.writeto("lambda0_1s_exc.fits", overwrite = True)
+
+hdu3 = fits.PrimaryHDU(np.abs(Lambda0_exc_1s_masked))
+hdu3.writeto("lambda0_exc_1s.fits", overwrite = True)
+
+hdu4 = fits.PrimaryHDU(np.abs(Lambda0_exc_exc_masked))
+hdu4.writeto("lambda0_exc_exc.fits", overwrite = True)
+
+# Saving into fits files for L0
+
+hdu5 = fits.PrimaryHDU(np.abs(L0_1s_1s_masked))
+hdu5.writeto("L0_1s_1s.fits", overwrite = True)
+
+hdu6 = fits.PrimaryHDU(np.abs(L0_1s_exc_masked))
+hdu6.writeto("L0_1s_exc.fits", overwrite = True)
+
+hdu7 = fits.PrimaryHDU(np.abs(L0_exc_1s_masked))
+hdu7.writeto("L0_exc_1s.fits", overwrite = True)
+
+hdu8 = fits.PrimaryHDU(np.abs(L0_exc_exc_masked))
+hdu8.writeto("L0_exc_exc.fits", overwrite = True)
+
+# Saving into fits files for L2
+
+hdu9 = fits.PrimaryHDU(np.abs(L2_1s_1s_masked))
+hdu9.writeto("L2_1s_1s.fits", overwrite = True)
+
+hdu10 = fits.PrimaryHDU(np.abs(L2_1s_exc_masked))
+hdu10.writeto("L2_1s_exc.fits", overwrite = True)
+
+hdu11 = fits.PrimaryHDU(np.abs(L2_exc_1s_masked))
+hdu11.writeto("L2_exc_1s.fits", overwrite = True)
+
+hdu12 = fits.PrimaryHDU(np.abs(L2_exc_exc_masked))
+hdu12.writeto("L2_exc_exc.fits", overwrite = True)
+
+
+
+# Next, take the inverse of each matrix just in case we need to use them later
+
+#Lambda0_1s_1s_inv = np.linalg.inv(Lambda0_1s_1s_masked)
+#Lambda0_1s_exc_inv = np.linalg.inv(Lambda0_1s_exc_masked)
+#Lambda0_exc_1s_inv = np.linalg.inv(Lambda0_exc_1s_masked)
+Lambda0_exc_exc_inv = np.linalg.inv(Lambda0_exc_exc_masked)
+
+#L0_1s_1s_inv = np.linalg.inv(L0_1s_1s_masked)
+#L0_1s_exc_inv = np.linalg.inv(L0_1s_exc_masked)
+#L0_exc_1s_inv = np.linalg.inv(L0_exc_1s_masked)
+#L0_exc_exc_inv = np.linalg.inv(L0_exc_exc_masked)
+
+#L2_1s_1s_inv = np.linalg.inv(L2_1s_1s_masked)
+#L2_1s_exc_inv = np.linalg.inv(L2_1s_exc_masked)
+#L2_exc_1s_inv = np.linalg.inv(L2_exc_1s_masked)
+#L2_exc_exc_inv = np.linalg.inv(L2_exc_exc_masked)
+
+
+
+# First, create a density and source matrix that represents the system
+
+'''
+density_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+
+density_matrix_1s = density_matrix[1:2,0:1,:,:,:,:]
+density_matrix_exc = density_matrix[2:numN+1,:,:,:,:,:]
+
+source_matrix_1s = source_matrix[1:2,0:1,:,:,:,:]
+source_matrix_exc = source_matrix[2:numN+1,:,:,:,:,:]
+
+
+
+density_matrix_1s = np.zeros(num_1s_phy)
+density_matrix_exc = np.zeros(num_exc_phy)
+
+source_matrix_1s = np.zeros(num_1s_phy)
+source_matrix_exc = np.zeros(num_exc_phy)
+'''
+
+
+# Now, we can produce the psuedo inverse of these matricies.
+
+'''
+density_matrix_1s = density_matrix_1s.reshape(num_1s_phy)
+density_matrix_exc = density_matrix_exc.reshape(num_exc_phy)
+
+source_matrix_1s = source_matrix_1s.reshape(num_1s_phy)
+source_matrix_exc = source_matrix_exc.reshape(num_exc_phy)
+
+
+# Let's run a test run for some given source function
+
+for i in range(num_exc_phy):
+    source_matrix_exc[i] = i
+    
+# Let's calculate the density matrix for one run
+
+density_matrix_exc = - Lambda0_exc_exc_inv * source_matrix_exc
+'''
