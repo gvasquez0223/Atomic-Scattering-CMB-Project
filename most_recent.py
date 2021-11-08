@@ -93,7 +93,7 @@ source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.com
 
 
     
-def dipole_bf(Nmax, E_free):
+def dipole_bf(Nmax, E_free, array_type):
     
     k = np.sqrt(E_free/13.6 ) # k^2 is the units of free energy the photon has
     
@@ -102,43 +102,103 @@ def dipole_bf(Nmax, E_free):
     
     # We want to calculate the g(n,n-1;k,n) term first.
     
-    for N in range(1,Nmax+1,1):
-        g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
-        print(g_first)
-    
-    
-        g_first *= 1/np.sqrt(1- np.exp(-2*np.pi/k))
-        g_first *= np.exp(2*N - 2*np.arctan(N*k)/k) / (1+N**2*k**2)**(N+2)
-    
-        # Adding on the normalization constant
-    
-        for s in range(1,N+1,1):
+    if array_type == True:
         
-            g_first *= np.sqrt(1+s**2*k**2)
+        for N in range(1,Nmax+1,1):
+            g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
+            print(g_first)
+    
+    
+            g_first *= 1/np.sqrt(1- np.exp(-2*np.pi/k))
+            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k) / (1+N**2*k**2)**(N+2)
+    
+            # Adding on the normalization constant
+    
+            for s in range(1,N+1,1):
+        
+                g_first *= np.sqrt(1+s**2*k**2)
 
-        # We want to calculate the g(n,n-2; k, n-1) term next
+            # We want to calculate the g(n,n-2; k, n-1) term next
         
-        g_second = 0.5*np.sqrt( (2*N-1)*(1+N**2 * k**2)) * g_first
+            g_second = 0.5*np.sqrt( (2*N-1)*(1+N**2 * k**2)) * g_first
     
-        # We want to assign values to our array as output
-    
-        dipole_bf_array[N, N-1] = g_first
-        dipole_bf_array[N, N-2] = g_second
+            # We want to assign values to our array as output
+
+
+            if N-2 > -1:    
+                dipole_bf_array[N, N-1] = g_first
+                dipole_bf_array[N, N-2] = g_second
+            elif N-1 > -1:
+                dipole_bf_array[N, N-1] = g_first
+        
+            
     
 
-        # Recursion relation which loops backwards to find each next value.
+            # Recursion relation which loops backwards to find each next value.
     
-        for L in range(N-2, -1, -1):
+            for L in range(N-2, -1, -1):
         
-            g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
-            g_term *= g_second
-            g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
-            g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
+                g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
+                g_term *= g_second
+                g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
+                g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
         
-            dipole_bf_array[N, L] = g_term
+                dipole_bf_array[N, L] = g_term
         
-            g_first = g_second
-            g_second = g_term
+                g_first = g_second
+                g_second = g_term
+                
+    else:
+        
+        for N in range(1,Nmax+1,1):
+            g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
+            print(g_first)
+    
+    
+            g_first *= 1/np.sqrt(1- np.exp(-2*np.pi/k))
+            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k) / (1+N**2*k**2)**(N+2)
+    
+            # Adding on the normalization constant
+    
+            for s in range(1,N+1,1):
+        
+                g_first *= np.sqrt(1+s**2*k**2)
+
+            # We want to calculate the g(n,n-1; k, n-2) term first
+        
+            g_first *= np.sqrt((1+N**2*k**2)/(1 + (N-1)**2*k**2)) / (2*N)
+                
+            # We want to now calculate the g(n,n-2;k,n-3) term
+                
+            g_second = (4 + (N-1)*(1+N**2*k**2))/(2*N)
+            g_second *= np.sqrt( (2*N-1)/(1+(N-2)**2*k**2))
+            g_second *= g_first
+                
+            # We want to assign values to our array as output
+                
+        
+            if N-2 > -1:    
+                dipole_bf_array[N, N-1] = g_first
+                dipole_bf_array[N, N-2] = g_second
+            elif N-1 > -1:
+                dipole_bf_array[N, N-1] = g_first
+    
+                
+    
+
+            # Recursion relation which loops backwards to find each next value.
+    
+            for L in range(N-3, -1, -1):
+        
+                g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
+                g_term *= g_second
+                g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
+                g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
+        
+                dipole_bf_array[N, L] = g_term
+        
+                g_first = g_second
+                g_second = g_term
         
     return dipole_bf_array
         
