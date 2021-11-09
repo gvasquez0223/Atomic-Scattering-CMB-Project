@@ -5,7 +5,7 @@ import fractions
 import time
 from astropy.io import fits
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
-from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln
+from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln, gamma
 
 
 
@@ -32,7 +32,7 @@ mag_field = 1e-12 # Magnetic field strength ( Gauss )
 
 Bohr_radius = hbar**2 / (m_electron * e0**2 ) # Bohr radius ( cm )
 larmor_freq = 1.3996e6 * mag_field # Lahmor frequency ( s^-1 )
-
+ion_energy = m_electron*e0**4/(2*hbar**2) / eV_to_ergs
 
 # Quantum numbers
 
@@ -91,11 +91,10 @@ density_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.co
 source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
 
-
     
 def dipole_bf(Nmax, E_free, array_type):
     
-    k = np.sqrt(E_free/13.6 ) # k^2 is the units of free energy the photon has
+    k = np.sqrt(E_free/ion_energy) # k^2 is the units of free energy the photon has
     
     dipole_bf_array = np.zeros( (Nmax+1,Nmax)) # We want to create an array with N-values of N and
                                         # N-1 values of L
@@ -105,8 +104,25 @@ def dipole_bf(Nmax, E_free, array_type):
     if array_type == True:
         
         for N in range(1,Nmax+1,1):
+            
+            g_first = np.sqrt(2*k/np.pi) * N**2 # constant to go from Burgess g to Landau g
+            
+            g_first = 4*np.sqrt(np.pi/2)
+            g_first *= 10**5
+            
+            g_first *= np.exp(-np.log(10**5))
+            g_first *= np.exp(N*np.log(4*N) - 2*N - 0.5*gammaln(2*N) )
+            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k - (N+2)*np.log(1+N**2*k**2))
+            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/k)))
+            
+            for s in range(1, N+1, 1):
+                
+                g_first *= np.exp(0.5*np.log(1+s**2*k**2))
+            
+            
+            '''
             g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
-            print(g_first)
+            #print(g_first)
     
     
             g_first *= 1/np.sqrt(1- np.exp(-2*np.pi/k))
@@ -117,6 +133,8 @@ def dipole_bf(Nmax, E_free, array_type):
             for s in range(1,N+1,1):
         
                 g_first *= np.sqrt(1+s**2*k**2)
+                
+            '''
 
             # We want to calculate the g(n,n-2; k, n-1) term next
         
@@ -151,6 +169,23 @@ def dipole_bf(Nmax, E_free, array_type):
     else:
         
         for N in range(1,Nmax+1,1):
+
+            g_first = np.sqrt(2*k/np.pi) * N**2 # constant to go from Burgess g to Landau g
+            
+            g_first = 4*np.sqrt(np.pi/2)
+            g_first *= 10**5
+            
+            g_first *= np.exp(-np.log(10**5))*np.exp(N*np.log(4*N) - 2*N - 0.5*gammaln(2*N) )
+            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k - (N+2)*np.log(1+N**2*k**2))
+            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/k)))
+            
+            for s in range(1, N+1, 1):
+                
+                g_first *= np.exp(0.5*np.log(1+s**2*k**2))
+       
+            
+            
+            '''
             g_first = 4*np.sqrt(np.pi/(2*np.math.factorial(2*N-1))) * (4*N)**N * np.exp(-2*N)
             print(g_first)
     
@@ -163,11 +198,14 @@ def dipole_bf(Nmax, E_free, array_type):
             for s in range(1,N+1,1):
         
                 g_first *= np.sqrt(1+s**2*k**2)
+                
+            '''
 
             # We want to calculate the g(n,n-1; k, n-2) term first
         
             g_first *= np.sqrt((1+N**2*k**2)/(1 + (N-1)**2*k**2)) / (2*N)
-                
+            
+            
             # We want to now calculate the g(n,n-2;k,n-3) term
                 
             g_second = (4 + (N-1)*(1+N**2*k**2))/(2*N)
@@ -201,7 +239,24 @@ def dipole_bf(Nmax, E_free, array_type):
                 g_second = g_term
         
     return dipole_bf_array
+
+E_free = 10 # eV
         
+bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
+bf_dipole_array2 = dipole_bf(numN, E_free, False) # Bound state l > Free state l
+
+A_Einstein_array1 =  np.zeros( (numN+1, numN) )
+A_Einstein_array2 =  np.zeros( (numN+1, numN) )
+
+for N in range(1,len(bf_dipole_array1),1):
+    for L in range(N):
+    
+        freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
+        freq = freq * eV_to_ergs # Conversion factor
+        
+        A_Einstein_array1[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array1[N,L]**2
+        A_Einstein_array2[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
+   
     
     
 
@@ -212,7 +267,7 @@ for other sections of this code. We want to incorporate corrections due to the H
 structure of the atom along with other effects. 
 
 Inputs: n, l, J, I, F
-Output: Energy of a given level
+Output: Energy of a given leveln
 
 '''
 
