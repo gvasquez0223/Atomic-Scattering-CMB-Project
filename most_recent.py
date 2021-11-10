@@ -32,7 +32,7 @@ mag_field = 1e-12 # Magnetic field strength ( Gauss )
 
 Bohr_radius = hbar**2 / (m_electron * e0**2 ) # Bohr radius ( cm )
 larmor_freq = 1.3996e6 * mag_field # Lahmor frequency ( s^-1 )
-ion_energy = m_electron*e0**4/(2*hbar**2) / eV_to_ergs
+ion_energy = m_electron*e0**4/(2*hbar**2) 
 
 # Quantum numbers
 
@@ -43,7 +43,7 @@ I = 0.5 # Nuclear spin quantum number
 # Values considered when summing over quantum numbers to determine Lmabdafortenight
 
                                                                                                           
-numN = 3 # Largest N value considered. Will go from 1 to Nmax.
+numN = 4 # Largest N value considered. Will go from 1 to Nmax.
 numL = numN # Largest L value considered.
 numJ = 2 # Number of allowed J values other than the L=0 case which there is only one.
 numK = 2 # Sum from 0 to 2
@@ -91,33 +91,62 @@ density_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.co
 source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
 
+'''
+
+dipole_bf(Nmax, E_Free, array_type) takes in a maximum upper state(Nmax), takes the energy of 
+the free electron (E_free), and then dictates which dipole array you will recieve (array_type).
+Note that 
+
+array_type == True will give you g(N,l;k,l+1)
+array_type == False will give you g(N,l-1;k,l)
+
+where g(N,l;k,l^{'}) = Bohr_Radius*e0 * integral( Free_electron*wf * r * Bound_wf r^2 dr)
+
+One can show in Burgess et. al 1965 that the dipole integrals obey a recursion relation
+which we impliment in this code.
+'''
+
     
 def dipole_bf(Nmax, E_free, array_type):
     
-    k = np.sqrt(E_free/ion_energy) # k^2 is the units of free energy the photon has
+    # The wave number in cgs units is given by
     
-    dipole_bf_array = np.zeros( (Nmax+1,Nmax)) # We want to create an array with N-values of N and
-                                        # N-1 values of L
+    k = np.sqrt(E_free/ion_energy)/Bohr_radius
+    
+    # Define a dimensionless variable x = k*Bohr_radius
+    
+    x = k*Bohr_radius
+        
+    # 2D array that has dimensions of (N,N-1)
+    
+    dipole_bf_array = np.zeros( (Nmax+1,Nmax))
+    
+    #######################################################################
+    ########################    Recursion Relation    #####################
+    #######################################################################
+    
     
     # We want to calculate the g(n,n-1;k,n) term first.
     
     if array_type == True:
         
         for N in range(1,Nmax+1,1):
-            
-            g_first = np.sqrt(2*k/np.pi) * N**2 # constant to go from Burgess g to Landau g
+           
+            # Redundant information, but this is the conversion factor to get Landau's normalization
+            # compared to Burgess et. al 1965. We multiply by np.sqrt()
+            g_first = np.sqrt(2*x/np.pi) * N**2 # constant to go from Burgess g to Landau g
             
             g_first = 4*np.sqrt(np.pi/2)
             g_first *= 10**5
             
             g_first *= np.exp(-np.log(10**5))
             g_first *= np.exp(N*np.log(4*N) - 2*N - 0.5*gammaln(2*N) )
-            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k - (N+2)*np.log(1+N**2*k**2))
-            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/k)))
+            g_first *= np.exp(2*N - 2*np.arctan(N*x)/x - (N+2)*np.log(1+N**2*x**2))
+            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/x)))
             
             for s in range(1, N+1, 1):
                 
-                g_first *= np.exp(0.5*np.log(1+s**2*k**2))
+                g_first *= np.exp(0.5*np.log(1+s**2*x**2))
             
             
             '''
@@ -138,7 +167,7 @@ def dipole_bf(Nmax, E_free, array_type):
 
             # We want to calculate the g(n,n-2; k, n-1) term next
         
-            g_second = 0.5*np.sqrt( (2*N-1)*(1+N**2 * k**2)) * g_first
+            g_second = 0.5*np.sqrt( (2*N-1)*(1+N**2 * x**2)) * g_first
     
             # We want to assign values to our array as output
 
@@ -154,14 +183,14 @@ def dipole_bf(Nmax, E_free, array_type):
 
             # Recursion relation which loops backwards to find each next value.
     
-            for L in range(N-2, -1, -1):
+            for L in range(N-1, 1, -1):
         
-                g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
+                g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*x**2))
                 g_term *= g_second
-                g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
-                g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
+                g_term += -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*x**2))*g_first
+                g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*x**2)))
         
-                dipole_bf_array[N, L] = g_term
+                dipole_bf_array[N, L-2] = g_term
         
                 g_first = g_second
                 g_second = g_term
@@ -170,18 +199,18 @@ def dipole_bf(Nmax, E_free, array_type):
         
         for N in range(1,Nmax+1,1):
 
-            g_first = np.sqrt(2*k/np.pi) * N**2 # constant to go from Burgess g to Landau g
+            g_first = np.sqrt(2*x/np.pi) * N**2 # constant to go from Burgess g to Landau g
             
             g_first = 4*np.sqrt(np.pi/2)
             g_first *= 10**5
             
             g_first *= np.exp(-np.log(10**5))*np.exp(N*np.log(4*N) - 2*N - 0.5*gammaln(2*N) )
-            g_first *= np.exp(2*N - 2*np.arctan(N*k)/k - (N+2)*np.log(1+N**2*k**2))
-            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/k)))
+            g_first *= np.exp(2*N - 2*np.arctan(N*x)/x - (N+2)*np.log(1+N**2*x**2))
+            g_first *= np.exp( - 0.5*np.log(1-np.exp(-2*np.pi/x)))
             
             for s in range(1, N+1, 1):
                 
-                g_first *= np.exp(0.5*np.log(1+s**2*k**2))
+                g_first *= np.exp(0.5*np.log(1+s**2*x**2))
        
             
             
@@ -203,44 +232,51 @@ def dipole_bf(Nmax, E_free, array_type):
 
             # We want to calculate the g(n,n-1; k, n-2) term first
         
-            g_first *= np.sqrt((1+N**2*k**2)/(1 + (N-1)**2*k**2)) / (2*N)
+            g_first *= np.sqrt((1+N**2*x**2)/(1 + (N-1)**2*x**2)) / (2*N)
             
             
             # We want to now calculate the g(n,n-2;k,n-3) term
                 
-            g_second = (4 + (N-1)*(1+N**2*k**2))/(2*N)
-            g_second *= np.sqrt( (2*N-1)/(1+(N-2)**2*k**2))
+            g_second = (4 + (N-1)*(1+N**2*x**2))/(2*N)
+            g_second *= np.sqrt( (2*N-1)/(1+(N-2)**2*x**2))
             g_second *= g_first
+            
+            print(N)
+            print(g_second)
                 
-            # We want to assign values to our array as output
+            # We want to assign values to our array as output.
+            # Note that we are assigning to the array for the L's in the Bound state.
+            # Therefore, the L = N-2 term will correlate with the [N,N-1] element, etc.
                 
+            if N-3>-1:
+                dipole_bf_array[N,N-1] = g_first
+                dipole_bf_array[N,N-2] = g_second
+            elif N-2>-1:
+                dipole_bf_array[N,N-1] = g_first
         
-            if N-2 > -1:    
-                dipole_bf_array[N, N-1] = g_first
-                dipole_bf_array[N, N-2] = g_second
-            elif N-1 > -1:
-                dipole_bf_array[N, N-1] = g_first
-    
-                
+
     
 
             # Recursion relation which loops backwards to find each next value.
     
-            for L in range(N-3, -1, -1):
+            for counter in range(N-3, 0, -1):
+                
+                L = counter + 1  # The array element and the actual L are off by 1.         
         
-                g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*k**2))
+                g_term = ( 4*N**2 - 4*L**2 + L*(2*L+1)*(1+ N**2*x**2))
                 g_term *= g_second
-                g_term -= -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*k**2))*g_first
-                g_term = g_term / ( 2*N*np.sqrt( (N**2 - (L-1)**2)*(1+L**2*k**2)))
-        
-                dipole_bf_array[N, L] = g_term
+                g_term += -2*N*np.sqrt( (N**2 - (L+1)**2)*(1+x**2*L**2)) * g_first
+                g_term = g_term / ( 2*N*np.sqrt( (N**2 - L**2)*(1+(L-1)**2*x**2)))
+                
+                
+                dipole_bf_array[N, counter] = g_term
         
                 g_first = g_second
                 g_second = g_term
         
-    return dipole_bf_array
+    return e0*Bohr_radius*dipole_bf_array
 
-E_free = 10 # eV
+E_free = 2.176*eV_to_ergs # eV
         
 bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
 bf_dipole_array2 = dipole_bf(numN, E_free, False) # Bound state l > Free state l
@@ -252,7 +288,7 @@ for N in range(1,len(bf_dipole_array1),1):
     for L in range(N):
     
         freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
-        freq = freq * eV_to_ergs # Conversion factor
+
         
         A_Einstein_array1[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array1[N,L]**2
         A_Einstein_array2[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
