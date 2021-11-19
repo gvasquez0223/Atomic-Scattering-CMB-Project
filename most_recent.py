@@ -33,6 +33,7 @@ mag_field = 1e-12 # Magnetic field strength ( Gauss )
 Bohr_radius = hbar**2 / (m_electron * e0**2 ) # Bohr radius ( cm )
 larmor_freq = 1.3996e6 * mag_field # Lahmor frequency ( s^-1 )
 ion_energy = m_electron*e0**4/(2*hbar**2) 
+proton_frac = 0.5
 
 # Quantum numbers
 
@@ -106,7 +107,9 @@ One can show in Burgess et. al 1965 that the dipole integrals obey a recursion r
 which we impliment in this code.
 '''
 
-    
+  
+
+
 def dipole_bf(Nmax, E_free, array_type):
     
     # The wave number in cgs units is given by
@@ -240,9 +243,7 @@ def dipole_bf(Nmax, E_free, array_type):
             g_second = (4 + (N-1)*(1+N**2*x**2))/(2*N)
             g_second *= np.sqrt( (2*N-1)/(1+(N-2)**2*x**2))
             g_second *= g_first
-            
-            print(N)
-            print(g_second)
+
                 
             # We want to assign values to our array as output.
             # Note that we are assigning to the array for the L's in the Bound state.
@@ -276,25 +277,108 @@ def dipole_bf(Nmax, E_free, array_type):
         
     return e0*Bohr_radius*dipole_bf_array
 
-E_free = 2.176*eV_to_ergs # eV
-        
-bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
-bf_dipole_array2 = dipole_bf(numN, E_free, False) # Bound state l > Free state l
+numE = 3
+Emax = 10
 
-A_Einstein_array1 =  np.zeros( (numN+1, numN) )
-A_Einstein_array2 =  np.zeros( (numN+1, numN) )
+A_Einstein_array1 =  np.zeros( (numE+1, numN+1, numN) )
+A_Einstein_array2 =  np.zeros( (numE+1, numN+1, numN) )
 
-for N in range(1,len(bf_dipole_array1),1):
-    for L in range(N):
+for i in range(numE+1):
+    E_free = i*(Emax/numE)*eV_to_ergs + 1e-8*eV_to_ergs
     
-        freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
+       
+    bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
+    bf_dipole_array2 = dipole_bf(numN, E_free, False) # Bound state l > Free state l
+
+    for N in range(1,len(bf_dipole_array1),1):
+        for L in range(N):
+    
+            freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
 
         
-        A_Einstein_array1[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array1[N,L]**2
-        A_Einstein_array2[N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
+            A_Einstein_array1[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array1[N,L]**2
+            A_Einstein_array2[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
+
+
+def source_boundfree_spontaneous(N, L, J, F):
+
+    term = np.sqrt(2*F+1)
+    term *= 1/(2*J+1)
+    term *= np.sqrt(m_electron/(2*hbar**2))
+    term *= proton_frac  / 2
    
+    if L == 0:
+             
+        Lu = L + 1
+                            
+        Ju = np.arange(Lu-0.5, Lu+1.5, 1)
+                
+        for ju in range(len(Ju)):
+                                
+            temp = 2*Ju[ju] + 1
+                    
+            hstep = Emax/numE
+            print(hstep)
+            
+            integral = 0.5*hstep*(A_Einstein_array1[0,N,L]/np.sqrt(1e-8) + A_Einstein_array1[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
+            print(integral)
+                  
+            for i in range(1,numE):
+                        
+                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
+                print(integral) 
+                
+                temp *= integral *np.sqrt(eV_to_ergs)
+                
+            term += temp
+            
+    elif L > 0:
+        
+        for lu in range(2):
+            
+            Lu = L - 1 + 2*lu
+            Ju = np.arange(Lu-0.5, Lu+1.5, 1)  
+
+            for ju in range(len(Ju)):                  
+                
+                temp = 2*Ju[ju] + 1
+                    
+                hstep = Emax/numE
+                print(hstep)
+                
+                if L < Lu:
+            
+                    integral = 0.5*hstep*(A_Einstein_array1[0,N,L]/np.sqrt(1e-8) + A_Einstein_array1[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
+                    print(integral)
+                  
+                    for i in range(1,numE):
+                        
+                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
+                        print(integral) 
+                
+                        temp *= integral *np.sqrt(eV_to_ergs)
+                
+                    term += temp
+                                
+                elif L > Lu:
+                    
+                    integral = 0.5*hstep*(A_Einstein_array2[0,N,L]/np.sqrt(1e-8) + A_Einstein_array2[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
+                    print(integral)
+                  
+                    for i in range(1,numE):
+                        
+                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
+                        print(integral) 
+                
+                    temp *= integral *np.sqrt(eV_to_ergs)
+                
+                    term += temp
+                    
+
+        return term
     
-    
+
+   
 
 '''
 
