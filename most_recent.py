@@ -278,14 +278,16 @@ def dipole_bf(Nmax, E_free, array_type):
     return e0*Bohr_radius*dipole_bf_array
 
 numE = 3
-Emax = 10
+Emax = 10*eV_to_ergs
 
-A_Einstein_array1 =  np.zeros( (numE+1, numN+1, numN) )
-A_Einstein_array2 =  np.zeros( (numE+1, numN+1, numN) )
+A_Einstein_array1 =  np.zeros( (numE, numN+1, numN) )
+A_Einstein_array2 =  np.zeros( (numE, numN+1, numN) )
 
-for i in range(numE+1):
-    E_free = i*(Emax/numE)*eV_to_ergs + 1e-8*eV_to_ergs
-    
+energy_array = np.zeros(numE)
+
+for i in range(numE):
+    E_free = i*(Emax/(numE-1)) + ion_energy + 1e-8*eV_to_ergs
+    energy_array[i] = E_free
        
     bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
     bf_dipole_array2 = dipole_bf(numN, E_free, False) # Bound state l > Free state l
@@ -300,12 +302,14 @@ for i in range(numE+1):
             A_Einstein_array2[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
 
 
-def source_boundfree_spontaneous(N, L, J, F):
+def source_boundfree_spontaneous(N, L, J, F, energy_array):
 
-    term = np.sqrt(2*F+1)
-    term *= 1/(2*J+1)
-    term *= np.sqrt(m_electron/(2*hbar**2))
-    term *= proton_frac  / 2
+    term = 0
+    
+    temp = np.sqrt(2*F+1)
+    temp *= 1/(2*J+1)
+    temp *= np.sqrt(m_electron/(2*hbar**2))
+    temp *= proton_frac  / 2
    
     if L == 0:
              
@@ -317,20 +321,26 @@ def source_boundfree_spontaneous(N, L, J, F):
                                 
             temp = 2*Ju[ju] + 1
                     
-            hstep = Emax/numE
-            print(hstep)
+            hstep = np.abs(energy_array[1]-energy_array[0])
+            #print(hstep)
             
-            integral = 0.5*hstep*(A_Einstein_array1[0,N,L]/np.sqrt(1e-8) + A_Einstein_array1[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
-            print(integral)
-                  
-            for i in range(1,numE):
+            integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
+            
+            integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
+                
+            print(0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy))
+            
+            for i in range(1,numE-1):
                         
-                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
-                print(integral) 
+                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
                 
-                temp *= integral *np.sqrt(eV_to_ergs)
+                print(hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)) 
                 
+            temp *= integral 
+            
             term += temp
+    
+    
             
     elif L > 0:
         
@@ -339,43 +349,51 @@ def source_boundfree_spontaneous(N, L, J, F):
             Lu = L - 1 + 2*lu
             Ju = np.arange(Lu-0.5, Lu+1.5, 1)  
 
-            for ju in range(len(Ju)):                  
-                
+            for ju in range(len(Ju)): 
+
                 temp = 2*Ju[ju] + 1
                     
-                hstep = Emax/numE
-                print(hstep)
+                hstep = np.abs(energy_array[1]-energy_array[0])
+                #print(hstep)
                 
                 if L < Lu:
             
-                    integral = 0.5*hstep*(A_Einstein_array1[0,N,L]/np.sqrt(1e-8) + A_Einstein_array1[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
-                    print(integral)
+                    integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
+            
+                    integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
                   
-                    for i in range(1,numE):
+                    print(integral)
+                    
+                    for i in range(1,numE-1):
                         
-                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
+                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
+                
                         print(integral) 
                 
-                        temp *= integral *np.sqrt(eV_to_ergs)
+                    temp *= integral 
+            
+                    term += temp                 
                 
-                    term += temp
                                 
                 elif L > Lu:
                     
-                    integral = 0.5*hstep*(A_Einstein_array2[0,N,L]/np.sqrt(1e-8) + A_Einstein_array2[numE,N, L]*np.exp(-numE*hstep*eV_to_ergs/(kB*T))/np.sqrt(numE*hstep))
-                    print(integral)
+                    integral = 0.5*hstep*A_Einstein_array2[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
+            
+                    integral += 0.5*hstep*A_Einstein_array2[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
                   
-                    for i in range(1,numE):
+                    print(integral)
+                    
+                    for i in range(1,numE-1):
                         
-                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(-i*hstep*eV_to_ergs/(kB*T)) / np.sqrt(hstep*i)
+                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
+                
                         print(integral) 
                 
-                    temp *= integral *np.sqrt(eV_to_ergs)
-                
-                    term += temp
-                    
+                    temp *= integral 
+            
+                    term += temp   
 
-        return term
+    return term
     
 
    
