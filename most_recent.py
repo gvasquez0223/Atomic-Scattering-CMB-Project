@@ -5,7 +5,7 @@ import fractions
 import time
 from astropy.io import fits
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
-from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln, gamma
+from scipy.special import genlaguerre, gamma, hyp2f1, factorial, gammaln, gamma, zeta
 
 
 
@@ -22,10 +22,11 @@ e0 = 4.8032e-10 # One unit of electric charge   ( cm^3/2 * g^1/2 / s )
 m_electron = 9.10938e-28 # Electron rest mass ( grams )
 eV_to_ergs = 1.60218e-12 # eV to ergs conversion 
 kB = 1.3807e-16 # Boltzmann constant (cm^2 g / s^2 K)
+baryon_to_photon_ratio = 5.9e-10 # Number of Baryons per photons
 
 # Variables to be determined before running the program
 
-T = 3000 # Temperature ( Kelvin )
+T = 3497.13 # Temperature ( Kelvin )
 mag_field = 1e-12 # Magnetic field strength ( Gauss )
 
 # Quantities calculated using the above constants of nature
@@ -277,16 +278,29 @@ def dipole_bf(Nmax, E_free, array_type):
         
     return e0*Bohr_radius*dipole_bf_array
 
-numE = 3
-Emax = 10*eV_to_ergs
+numE = 1000 # Pick a number of elements to integrate across
+Emax = 100*eV_to_ergs #Pick a maximum energy for free energy of electron
+
+# Einstein arrays for both cases
 
 A_Einstein_array1 =  np.zeros( (numE, numN+1, numN) )
 A_Einstein_array2 =  np.zeros( (numE, numN+1, numN) )
 
+# Array with energy values
 energy_array = np.zeros(numE)
 
+# Acquiring energy and A coefficients
+
+hstep = Emax/numE # Step size
+
+# Setting up midpoint method for integration
+
 for i in range(numE):
-    E_free = i*(Emax/(numE-1)) + ion_energy + 1e-8*eV_to_ergs
+    
+    E_free = hstep/2 + i*hstep
+    
+    
+    #E_free = i*(Emax/(numE-1)) + 1e-8*eV_to_ergs
     energy_array[i] = E_free
        
     bf_dipole_array1 = dipole_bf(numN, E_free, True) # Bound state l < Free state l
@@ -302,97 +316,161 @@ for i in range(numE):
             A_Einstein_array2[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
 
 
+
 def source_boundfree_spontaneous(N, L, J, F, energy_array):
 
     term = 0
+    
+
+
+    # Prefactors
     
     temp = np.sqrt(2*F+1)
     temp *= 1/(2*J+1)
     temp *= np.sqrt(m_electron/(2*hbar**2))
     temp *= proton_frac  / 2
-   
+    print("Temp before loop:", temp)
+    
+    # Number density of baryons (cm^{-3})
+    
+    
+    num_den_proton = (2*zeta(3)/np.pi**2)
+    num_den_proton *= (kB*T/ (hbar*c))**3
+    num_den_proton *= baryon_to_photon_ratio * proton_frac
+    print ("Proton Number Density:", num_den_proton) 
+
+    # Electron chemical potential (ergs)   
+    
+    #chemical_potential = m_electron*c**2 + kB*T*np.log(num_den_proton/2) 
+    chemical_potential = kB*T*np.log(num_den_proton/2) 
+    chemical_potential += 1.5*kB*T*np.log( 2*np.pi*hbar**2 / (m_electron*kB*T) )
+    print("Chemical Potential (no rest energy):", chemical_potential)
+    
+    # Computes the value if the bound state has L=0
+    
     if L == 0:
              
         Lu = L + 1
                             
-        Ju = np.arange(Lu-0.5, Lu+1.5, 1)
+        Ju = np.arange(np.abs(Lu-S), Lu+S+1, 1)  
                 
         for ju in range(len(Ju)):
                                 
-            temp = 2*Ju[ju] + 1
+            temp *= 2*Ju[ju] + 1
                     
-            hstep = np.abs(energy_array[1]-energy_array[0])
+            #hstep = np.abs(energy_array[1]-energy_array[0])
             #print(hstep)
+            integral = 0
             
-            integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
-            
-            integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
+            for i in range(numE):
                 
-            print(0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy))
+                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-( energy_array[i] - chemical_potential) /(kB*T)) / np.sqrt(energy_array[i])
+               
+            
+            temp *= integral
+            
+            term += temp
+            
+            '''
+            
+            
+            integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0])
+            
+            integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]) 
+                
+            #print(0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy))
             
             for i in range(1,numE-1):
                         
-                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
+                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i])
                 
-                print(hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)) 
+                #print(hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)) 
                 
             temp *= integral 
             
             term += temp
+            '''
     
-    
-            
+    # Computes the bound state if L is not zero
+        
     elif L > 0:
         
         for lu in range(2):
             
             Lu = L - 1 + 2*lu
-            Ju = np.arange(Lu-0.5, Lu+1.5, 1)  
+            Ju = np.arange(np.abs(Lu-S), Lu+S+1, 1)  
 
             for ju in range(len(Ju)): 
 
-                temp = 2*Ju[ju] + 1
+                temp *= 2*Ju[ju] + 1
+                #print("Temp", temp)
                     
-                hstep = np.abs(energy_array[1]-energy_array[0])
+                #hstep = np.abs(energy_array[1]-energy_array[0])
                 #print(hstep)
                 
                 if L < Lu:
-            
-                    integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
-            
-                    integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
-                  
-                    print(integral)
                     
+                    #print("Lu", Lu)
+                    #print("Ju:", Ju[ju])
+            
+                    #integral = 0.5*hstep*A_Einstein_array1[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0])
+            
+                    #integral += 0.5*hstep*A_Einstein_array1[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]) 
+                  
+                    #print(integral)
+                    
+                    integral = 0
+
+                    for i in range(numE):
+                
+                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(- ( energy_array[i] - chemical_potential) / (kB*T)) / np.sqrt(energy_array[i])
+             
+                    #print("Integral:",integral)
+                    temp *= integral
+                    #print("Temp:",temp)
+                    term += temp
+                    
+                    '''
                     for i in range(1,numE-1):
                         
-                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
+                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i])
                 
-                        print(integral) 
+                        #print(integral) 
                 
                     temp *= integral 
             
                     term += temp                 
-                
+                    '''
                                 
                 elif L > Lu:
                     
-                    integral = 0.5*hstep*A_Einstein_array2[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0]-ion_energy)
+                    #integral = 0.5*hstep*A_Einstein_array2[0,N,L]*np.exp(-energy_array[0]/(kB*T))/np.sqrt(energy_array[0])
             
-                    integral += 0.5*hstep*A_Einstein_array2[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]-ion_energy) 
+                    #integral += 0.5*hstep*A_Einstein_array2[numE-1,N,L]*np.exp(-energy_array[numE-1]/(kB*T))/np.sqrt(energy_array[numE-1]) 
                   
-                    print(integral)
+                    #print(integral)
                     
+                    integral = 0
+
+                    for i in range(numE):
+                
+                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(- ( energy_array[i] - chemical_potential)/(kB*T)) / np.sqrt(energy_array[i])
+                     
+                    temp *= integral
+                    #print(temp)
+                    term += temp
+                    
+                    '''
                     for i in range(1,numE-1):
                         
-                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i]-ion_energy)
+                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(-energy_array[i]/(kB*T))/np.sqrt(energy_array[i])
                 
                         print(integral) 
                 
                     temp *= integral 
             
                     term += temp   
-
+                    '''
     return term
     
 
