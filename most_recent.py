@@ -108,7 +108,9 @@ One can show in Burgess et. al 1965 that the dipole integrals obey a recursion r
 which we impliment in this code.
 '''
 
-  
+
+        
+        
 
 
 def dipole_bf(Nmax, E_free, array_type):
@@ -134,13 +136,18 @@ def dipole_bf(Nmax, E_free, array_type):
     
     if array_type == True:
         
+        # Calculating the original term 
+        
+        
         for N in range(1,Nmax+1,1):
-           
+            
+                               
             # Redundant information, but this is the conversion factor to get Landau's normalization
             # compared to Burgess et. al 1965. We multiply by np.sqrt()
+                                
             g_first = np.sqrt(2*x/np.pi) * N**2 # constant to go from Burgess g to Landau g
             
-            g_first = 4*np.sqrt(np.pi/2)
+            g_first *= 4*np.sqrt(np.pi/2)
             g_first *= 10**5
             
             g_first *= np.exp(-np.log(10**5))
@@ -185,10 +192,10 @@ def dipole_bf(Nmax, E_free, array_type):
             
     
 
-            # Recursion relation which loops backwards to find each next value.
+           # Recursion relation which loops backwards to find each next value.
     
-            for L in range(N-1, 1, -1):
-        
+            for L in range(N-2,1,-1):        
+
                 g_term = ( 4*N**2 - 4*L**2 + L*(2*L-1)*(1+ N**2*x**2))
                 g_term *= g_second
                 g_term += -2*N*np.sqrt( (N**2-L**2)*( 1 + (L+1)**2*x**2))*g_first
@@ -202,6 +209,7 @@ def dipole_bf(Nmax, E_free, array_type):
     else:
         
         for N in range(1,Nmax+1,1):
+            
 
             g_first = np.sqrt(2*x/np.pi) * N**2 # constant to go from Burgess g to Landau g
             
@@ -275,16 +283,19 @@ def dipole_bf(Nmax, E_free, array_type):
         
                 g_first = g_second
                 g_second = g_term
+                                                        
         
     return e0*Bohr_radius*dipole_bf_array
+
+
 
 numE = 1000 # Pick a number of elements to integrate across
 Emax = 100*eV_to_ergs #Pick a maximum energy for free energy of electron
 
 # Einstein arrays for both cases
 
-A_Einstein_array1 =  np.zeros( (numE, numN+1, numN) )
-A_Einstein_array2 =  np.zeros( (numE, numN+1, numN) )
+A_Einstein_array1 =  np.zeros( (numE, numN+1, numN, numJ, numJ) )
+A_Einstein_array2 =  np.zeros( (numE, numN+1, numN, numJ, numJ) )
 
 # Array with energy values
 energy_array = np.zeros(numE)
@@ -308,28 +319,70 @@ for i in range(numE):
 
     for N in range(1,len(bf_dipole_array1),1):
         for L in range(N):
+            
+                L_u = L+1
+                
+                J = np.arange( np.abs(L-S), L+S+1, 1)
+                J_u = np.arange(np.abs(L_u-S), L_u+S+1, 1)
+                
+                for j in range(len(J)):
+                    for j_u in range(len(J_u)):
+                        
+                        # Angular prefactor as discussed in the Overleaf
+                        
+                        ang_prefactor = (-1)**(L + S + J_u[j_u] + 1)
+                        ang_prefactor *= np.sqrt( (2*J_u[j_u]+1)*(2*L+1) )
+                        ang_prefactor *= np.float(wigner_6j(L,L_u,1,J_u[j_u],J[j],S))
+                                                
     
-            freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
+                        freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
 
         
-            A_Einstein_array1[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array1[N,L]**2
-            A_Einstein_array2[i, N,L] = 64*np.pi**4/(3*h*c**3) * freq**3 * bf_dipole_array2[N,L]**2
+                        A_Einstein_array1[i, N,L,j, j_u] = 64*np.pi**4/(3*h*c**3) * freq**3 * ang_prefactor**2 * bf_dipole_array1[N,L]**2
+
+
+    for N in range(1,len(bf_dipole_array2),1):
+        for L in range(1,N,1):
+            
+                L_u = L-1
+                
+                J = np.arange( np.abs(L-S), L+S+1, 1)
+                J_u = np.arange(np.abs(L_u-S), L_u+S+1, 1)
+                
+                for j in range(len(J)):
+                    for j_u in range(len(J_u)):
+                        
+                        # Angular prefactor as discussed in the Overleaf
+                        
+                        ang_prefactor = (-1)**(L + S + J_u[j_u] + 1)
+                        ang_prefactor *= np.sqrt( (2*J_u[j_u]+1)*(2*L+1) )
+                        ang_prefactor *= np.float(wigner_6j(L,L_u,1,J_u[j_u],J[j],S))
+                                                
+    
+                        freq = (E_free + ion_energy/N**2) /h #Hydrogen energy is negative, so total is positive.
+
+        
+                        A_Einstein_array2[i, N,L,j, j_u] = 64*np.pi**4/(3*h*c**3) * freq**3 * ang_prefactor**2 * bf_dipole_array2[N,L]**2
 
 
 
-def source_boundfree_spontaneous(N, L, J, F, energy_array):
+def source_boundfree_spontaneous(N, L, j, k, f0, f1, energy_array):
 
     term = 0
     
-
+    # Computes total atomic and electron angular momentum
+    J = np.arange( np.abs(L-S), L+S+1, 1)
+    F = np.arange( np.abs(J[j]-I), J[j]+I+1, 1)
+    
 
     # Prefactors
     
-    temp = np.sqrt(2*F+1)
-    temp *= 1/(2*J+1)
-    temp *= np.sqrt(m_electron/(2*hbar**2))
-    temp *= proton_frac  / 2
-    print("Temp before loop:", temp)
+    prefactor = np.sqrt(2*F[f0]+1)
+    prefactor *= 1/(2*J[j]+1)
+    prefactor *= np.sqrt(m_electron/(2*hbar**2))
+    prefactor *= proton_frac  / 2
+    prefactor *= Bohr_radius
+    #print("Prefactor before loop:", prefactor)
     
     # Number density of baryons (cm^{-3})
     
@@ -356,7 +409,7 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
                 
         for ju in range(len(Ju)):
                                 
-            temp *= 2*Ju[ju] + 1
+            temp = (2*Ju[ju] + 1)*prefactor
                     
             #hstep = np.abs(energy_array[1]-energy_array[0])
             #print(hstep)
@@ -364,12 +417,13 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
             
             for i in range(numE):
                 
-                integral += hstep*A_Einstein_array1[i,N,L]*np.exp(-( energy_array[i] - chemical_potential) /(kB*T)) / np.sqrt(energy_array[i])
+                integral += hstep*A_Einstein_array1[i,N,L,j,ju]*np.exp(-( energy_array[i] - chemical_potential) /(kB*T)) / np.sqrt(energy_array[i])
                
             
             temp *= integral
             
             term += temp
+            
             
             '''
             
@@ -390,6 +444,9 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
             
             term += temp
             '''
+            
+            if F[f0] < np.abs(J[j]-S) or F[f0] > J[j]+S or k==1 or f0 != f1:
+                term = 0
     
     # Computes the bound state if L is not zero
         
@@ -401,8 +458,9 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
             Ju = np.arange(np.abs(Lu-S), Lu+S+1, 1)  
 
             for ju in range(len(Ju)): 
+                
 
-                temp *= 2*Ju[ju] + 1
+                temp = (2*Ju[ju] + 1)*prefactor
                 #print("Temp", temp)
                     
                 #hstep = np.abs(energy_array[1]-energy_array[0])
@@ -423,7 +481,7 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
 
                     for i in range(numE):
                 
-                        integral += hstep*A_Einstein_array1[i,N,L]*np.exp(- ( energy_array[i] - chemical_potential) / (kB*T)) / np.sqrt(energy_array[i])
+                        integral += hstep*A_Einstein_array1[i,N,L,j,ju]*np.exp(- ( energy_array[i] - chemical_potential) / (kB*T)) / np.sqrt(energy_array[i])
              
                     #print("Integral:",integral)
                     temp *= integral
@@ -454,7 +512,7 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
 
                     for i in range(numE):
                 
-                        integral += hstep*A_Einstein_array2[i,N,L]*np.exp(- ( energy_array[i] - chemical_potential)/(kB*T)) / np.sqrt(energy_array[i])
+                        integral += hstep*A_Einstein_array2[i,N,L,j,ju]*np.exp(- ( energy_array[i] - chemical_potential)/(kB*T)) / np.sqrt(energy_array[i])
                      
                     temp *= integral
                     #print(temp)
@@ -471,6 +529,12 @@ def source_boundfree_spontaneous(N, L, J, F, energy_array):
             
                     term += temp   
                     '''
+        
+        # Making sure F is in the correct range
+        
+        if F[f0] < np.abs(J[j]-S) or F[f0] > J[j]+S or k==1 or f0 != f1:
+            term = 0
+        
     return term
     
 
@@ -1819,6 +1883,82 @@ Lambda0_exc_exc_inv = np.linalg.inv(Lambda0_exc_exc_masked)
 #L2_exc_exc_inv = np.linalg.inv(L2_exc_exc_masked)
 
 
+# Source function
+
+source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+mask_matrix = np.zeros((numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+
+for N in range(1, numN+1,1):
+    for L in range(numN):
+        
+        J = np.arange( np.abs(L-S), L+S+1, 1)
+        
+        for j in range(len(J)):
+            
+            F = np.arange( np.abs(J[j]-I), J[j]+I+1, 1)
+            
+            for k in range(numK):
+                
+                for f0 in range(len(F)):
+                    for f1 in range(len(F)):
+                    
+                    
+                        if mask_allowed(N,L,j,k, f0, f1) == True:
+                            
+                            mask_matrix[N,L,j,k,f0,f1] = True
+                        
+                        else:
+                            
+                            mask_matrix[N,L,j,k,f0,f1] = False
+            
+                        
+                        source_matrix[N,L,j,k,f0,f1] = source_boundfree_spontaneous(N,L,j,k,f0,f1,energy_array)
+            
+            
+source_matrix_1s = source_matrix[1:2,0:1,:,:,:,:]
+source_matrix_exc = source_matrix[2:numN+1,:,:,:,:,:]
+
+source_matrix_1s = source_matrix_1s.reshape(N_1s)
+source_matrix_exc = source_matrix_exc.reshape(N_exc)
+
+mask_matrix_1s = mask_matrix[1:2,0:1,:,:,:,:]
+mask_matrix_exc = mask_matrix[2:numN+1,:,:,:,:,:]
+
+mask_matrix_1s = mask_matrix_1s.reshape(N_1s)
+mask_matrix_exc = mask_matrix_exc.reshape(N_exc)
+
+
+source_matrix_1s_masked = np.zeros(num_1s_phy)
+source_matrix_exc_masked = np.zeros(num_exc_phy)
+
+
+x_counter = 0
+
+for i in range(N_1s):
+        
+    if mask_matrix_1s[i] == True:
+        
+        source_matrix_1s_masked[x_counter] = source_matrix_1s[i]
+        
+        x_counter += 1
+
+
+x_counter = 0
+
+for i in range(N_exc):
+        
+    if mask_matrix_exc[i] == True:
+        
+        source_matrix_exc_masked[x_counter] = source_matrix_exc[i]
+        
+        x_counter += 1   
+         
+
+hdu_source_1s = fits.PrimaryHDU(np.abs(source_matrix_1s_masked))
+hdu_source_1s.writeto("source_1s.fits", overwrite = True)
+
+hdu_source_exc = fits.PrimaryHDU(np.abs(source_matrix_exc_masked))
+hdu_source_exc.writeto("source_exc.fits", overwrite = True)            
 
 # First, create a density and source matrix that represents the system
 
