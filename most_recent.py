@@ -398,14 +398,14 @@ def source_boundfree_spontaneous(N, L, j, k, f0, f1, energy_array):
     num_den_proton = (2*zeta(3)/np.pi**2)
     num_den_proton *= (kB*T/ (hbar*c))**3
     num_den_proton *= baryon_to_photon_ratio * proton_frac
-    print ("Proton Number Density:", num_den_proton) 
+    #print ("Proton Number Density:", num_den_proton) 
 
     # Electron chemical potential (ergs)   
     
     #chemical_potential = m_electron*c**2 + kB*T*np.log(num_den_proton/2) 
     chemical_potential = kB*T*np.log(num_den_proton/2) 
     chemical_potential += 1.5*kB*T*np.log( 2*np.pi*hbar**2 / (m_electron*kB*T) )
-    print("Chemical Potential (no rest energy):", chemical_potential)
+    #print("Chemical Potential (no rest energy):", chemical_potential)
     
     # Computes the value if the bound state has L=0
     
@@ -546,8 +546,146 @@ def source_boundfree_spontaneous(N, L, j, k, f0, f1, energy_array):
     return term
     
 
+def boundfree_photoionization(N, L, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
+    
+   
+    term = 0
+    
+    if L == 0:
+        
+        Lu = L + 1
+        
+        Ju = np.arange( np.abs(Lu-S), Lu+S+1, 1)
+        
+        if J == 0.5:
+            j = 0
+        
+        
+        for ju in range(len(Ju)):
+            
+            term1 = 0
+            term2 = 0
+                       
+            prefactor = Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
+            prefactor *= (2*J+1)*np.sqrt(3*(2*K+1)*(2*K_prime+1)*(2*Kr+1))
+            prefactor *= (-1)**(1+Ju[ju]-I+ F0)
+            prefactor *= wigner_6j(J,J,Kr,1,1,Ju[ju])*wigner_3j(K,K_prime,Kr,0,0,0)
+            prefactor = np.float(prefactor)
+            #print("Prefactor:", prefactor)
+            
+            if F0 == F2:
+                
+                term1 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
+                term1 *= wigner_6j(J,J,Kr,F3,F1,I)*wigner_6j(K,K_prime,Kr,F3,F1,F0)
+                term1 = np.float(term1)
+                #print("Term1:", term1)
+                
+            if F1 == F3:
+                
+                term2 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
+                term2 *= (-1)**(F2-F1+K+K_prime+Kr)
+                term2 *= wigner_6j(J,J,Kr,F2,F0,I)*wigner_6j(K,K_prime,Kr,F2,F0,F1)
+                term2 = np.float(term2)
+                #print("Term2:", term2)
+                
+            integral = 0
+                        
+            for i in range(numE):
+                
+                freq_bf = ( energy_array[i] - energy(N,L,J,I,F0) )/h
+               
+                integral += hstep*B_Einstein_array1[i,N,L,j,ju]*rad_field_tensor(Kr, freq_bf, T, pert_index) / np.sqrt(energy_array[i])
 
+                '''
+                print("i:", i)                
+                print("N:", N)
+                print("L:", L)
+                print("j:", j)
+                print("ju:", ju)
+                print("freq_bf:", freq_bf)
+                print("hstep:", hstep)
+                print("B_Einstein:", B_Einstein_array1[i,N,L,j,ju])
+                print("rad_field_tensor:",rad_field_tensor(Kr, freq_bf, T, pert_index))
+                
+                '''
+                #print("integral sum:", integral)
+                                     
+            #print ("Integral:", integral)
+                
+            temp = prefactor*(term1 + term2)*integral
+            #print("Temp:", temp)
+            
+            term += temp
+            #print("Term:", term)
+            
+    elif L > 0:
+        
+        if J == np.abs(L-S):
+            j = 0 # index for the first possible value of J: J = |L-S| and L > 0
+        elif J == L+S:
+            j = 1 # index for the second possible value of J: J = L+S and L > 0
+       
+            
+        for lu in range(2):
+                
+            Lu = L-1+2*lu
+            Ju = np.arange( np.abs(Lu-S), Lu+S+1, 1)
+                
+            for ju in range(len(Ju)):
+                    
+                term1 = 0
+                term2 = 0
+                       
+                prefactor = Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
+                prefactor *= (2*J+1)*np.sqrt(3*(2*K+1)*(2*K_prime+1)*(2*Kr+1))
+                prefactor *= (-1)**(1+Ju[ju]-I+ F0)
+                prefactor *= wigner_6j(J,J,Kr,1,1,Ju[ju]) * wigner_3j(K,K_prime,Kr,0,0,0)
+                prefactor = np.float(prefactor)
+            
+                if F0 == F2:
+                
+                    term1 = 0.5*np.sqrt( (2*F1+1)*(2*F3+1) )
+                    term1 *= wigner_6j(J,J,Kr,F3,F1,I)*wigner_6j(K,K_prime,Kr,F3,F1,F0)
+                    term1 = np.float(term1)
+                
+                if F1 == F3:
+                
+                    term2 = 0.5*np.sqrt( (2*F0+1)*(2*F2+1) )
+                    term2 *= (-1)**(F2-F1+K+K_prime+Kr)
+                    term2 *= wigner_6j(J,J,Kr,F2,F0,I)*wigner_6j(K,K_prime,Kr,F2,F0,F1)
+                    term2 = np.float(term2)  
+                    
+                integral = 0
+                
+                if L < Lu:
+                    
+                    for i in range(numE):
+                
+                        freq_bf = ( energy_array[i] - energy(N,L,J,I,F0) )/h
+               
+                        integral += hstep*B_Einstein_array1[i,N,L,j,ju]*rad_field_tensor(Kr, freq_bf, T, pert_index) / np.sqrt(energy_array[i])
 
+                                    
+                elif L > Lu:
+                    
+                    for i in range(numE):
+                
+                        freq_bf = ( energy_array[i] - energy(N,L,J,I,F0) )/h
+               
+                        integral += hstep*B_Einstein_array2[i,N,L,j,ju]*rad_field_tensor(Kr, freq_bf, T, pert_index) / np.sqrt(energy_array[i])
+                
+                
+                temp = prefactor*(term1 + term2)*integral
+                term += temp
+                
+    return term
+                    
+                    
+                    
+                
+                
+            
+            
 def source_boundfree_stimulated(N, L, j, k, f0, f1, pert_index, energy_array):
 
     term = 0
@@ -584,14 +722,14 @@ def source_boundfree_stimulated(N, L, j, k, f0, f1, pert_index, energy_array):
     num_den_proton = (2*zeta(3)/np.pi**2)
     num_den_proton *= (kB*T/ (hbar*c))**3
     num_den_proton *= baryon_to_photon_ratio * proton_frac
-    print ("Proton Number Density:", num_den_proton) 
+    #print ("Proton Number Density:", num_den_proton) 
 
     # Electron chemical potential (ergs)   
     
     #chemical_potential = m_electron*c**2 + kB*T*np.log(num_den_proton/2) 
     chemical_potential = kB*T*np.log(num_den_proton/2) 
     chemical_potential += 1.5*kB*T*np.log( 2*np.pi*hbar**2 / (m_electron*kB*T) )
-    print("Chemical Potential (no rest energy):", chemical_potential)
+    #print("Chemical Potential (no rest energy):", chemical_potential)
     
     # Computes the value if the bound state has L=0
     
@@ -675,7 +813,7 @@ def source_boundfree_stimulated(N, L, j, k, f0, f1, pert_index, energy_array):
                     temp *= (2*Ju[ju] + 1)*prefactor
                     temp *= np.float(wigner_6j(J[j], J[j], 2, F[f1], F[f0], 0.5))
                     temp *= np.float(wigner_6j(J[j], J[j], 2, 1, 1, Ju[ju]))
-                    print("temp:",temp)
+                    #print("temp:",temp)
                 
                 
                 #print("Temp", temp)
@@ -1085,6 +1223,8 @@ Output:
 
 '''
 
+    
+    
 
 def T_A(n0, n1, l0, l1, J0, J1, K0, K1, Kr, F0, F1, F2, F3, pert_index):
 
@@ -1342,6 +1482,8 @@ def R_A(n, l, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_index):
     return total_term
 
 
+
+    
 
 def R_E(n, l, J, I, K, K_prime, F0, F1, F2, F3):
 
@@ -1742,6 +1884,11 @@ for N0 in range(1, numN+1):
                                                             RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             
+                                                            # Photoionization terms
+                                                            
+                                                            photo_unpert = boundfree_photoionization(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
+                                                            photo_pert_0 = boundfree_photoionization(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                               
                                                             print("RA_unpert: "+str(RA_unpert), file=output_file)
                                                             print("RS_unpert: "+str(RS_unpert), file=output_file)
                                                             print("RE_total: "+str(RE_total), file=output_file)
@@ -1749,18 +1896,29 @@ for N0 in range(1, numN+1):
                                                             print("RA_pert_0: "+str(RA_pert_0), file=output_file)
                                                             print("RS_pert_0: "+str(RS_pert_0), file=output_file)
                                                             
-                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total
-                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0
+                                                            print("photoionization_unpert: " + str(photo_unpert), file=output_file)
+                                                            print("photoionization_pert_0: " + str(photo_pert_0), file=output_file)
+                                                         
+                                                            #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total
+                                                            #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0
+
+                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total - photo_unpert
+                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0 - photo_pert_0
                                                             
                                                         if Kr==2:
                                                             
                                                             RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             
+                                                            photo_pert_2 = boundfree_photoionization(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+                                                                                                                        
                                                             print("RA_pert_2: " +str(RA_pert_2), file=output_file)
                                                             print("RS_pert_2: " +str(RS_pert_2), file=output_file)
                                                             
-                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2
+                                                            print("photoionization_pert_2: " + str(photo_pert_2), file=output_file)
+
+                                                            #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 -
+                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 - photo_pert_2
                                                             
                                                         print(" ", file = output_file)
                                                         print("Lambda0: "+str(Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)
@@ -2163,7 +2321,10 @@ Lambda0_exc_exc_inv = np.linalg.inv(Lambda0_exc_exc_masked)
 
 # Source function
 
-source_matrix = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+source_matrix_unpert = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+source_matrix_pert_0 = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+source_matrix_pert_2 = np.zeros( (numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
+
 mask_matrix = np.zeros((numN+1, numL, numJ, numK, numF, numF), dtype = np.complex)
 
 for N in range(1, numN+1,1):
@@ -2190,17 +2351,45 @@ for N in range(1, numN+1,1):
                             mask_matrix[N,L,j,k,f0,f1] = False
             
                         
-                        source_matrix[N,L,j,k,f0,f1] = source_boundfree_spontaneous(N,L,j,k,f0,f1,energy_array)
-                        
-                                                              
-                                                                                   
-            
-            
-source_matrix_1s = source_matrix[1:2,0:1,:,:,:,:]
-source_matrix_exc = source_matrix[2:numN+1,:,:,:,:,:]
+                        if k == 0:
+                            
+                            source_matrix_unpert[N,L,j,k,f0,f1] = source_boundfree_spontaneous(N,L,j,k,f0,f1,energy_array)
+                            source_matrix_unpert[N,L,j,k,f0,f1] += source_boundfree_stimulated(N,L,j,k,f0,f1,False,energy_array)
 
+                            source_matrix_pert_0[N,L,j,k,f0,f1] = source_boundfree_stimulated(N,L,j,k,f0,f1,True,energy_array)
+                            
+                        elif k == 2:
+
+                            source_matrix_pert_2[N,L,j,k,f0,f1] = source_boundfree_stimulated(N,L,j,k,f0,f1,True,energy_array)
+
+
+            
+            
+source_matrix_1s_unpert = source_matrix_unpert[1:2,0:1,:,:,:,:]
+source_matrix_1s_pert_0 = source_matrix_pert_0[1:2,0:1,:,:,:,:]
+source_matrix_1s_pert_2 = source_matrix_pert_2[1:2,0:1,:,:,:,:]
+
+source_matrix_exc_unpert = source_matrix_unpert[2:numN+1,:,:,:,:,:]
+source_matrix_exc_pert_0 = source_matrix_pert_0[2:numN+1,:,:,:,:,:]
+source_matrix_exc_pert_2 = source_matrix_pert_2[2:numN+1,:,:,:,:,:]
+
+'''
+source_matrix_exc = source_matrix[2:numN+1,:,:,:,:,:]
+'''
+
+source_matrix_1s_unpert = source_matrix_1s_unpert.reshape(N_1s)
+source_matrix_1s_pert_0 = source_matrix_1s_pert_0.reshape(N_1s)
+source_matrix_1s_pert_2 = source_matrix_1s_pert_2.reshape(N_1s)
+
+source_matrix_exc_unpert = source_matrix_exc_unpert.reshape(N_exc)
+source_matrix_exc_pert_0 = source_matrix_exc_pert_0.reshape(N_exc)
+source_matrix_exc_pert_2 = source_matrix_exc_pert_2.reshape(N_exc)
+
+'''
 source_matrix_1s = source_matrix_1s.reshape(N_1s)
 source_matrix_exc = source_matrix_exc.reshape(N_exc)
+'''
+
 
 mask_matrix_1s = mask_matrix[1:2,0:1,:,:,:,:]
 mask_matrix_exc = mask_matrix[2:numN+1,:,:,:,:,:]
@@ -2209,19 +2398,31 @@ mask_matrix_1s = mask_matrix_1s.reshape(N_1s)
 mask_matrix_exc = mask_matrix_exc.reshape(N_exc)
 
 
-source_matrix_1s_masked = np.zeros(num_1s_phy)
-source_matrix_exc_masked = np.zeros(num_exc_phy)
+source_1s_unpert_masked = np.zeros(num_1s_phy)
+source_1s_pert_0_masked = np.zeros(num_1s_phy)
+source_1s_pert_2_masked = np.zeros(num_1s_phy)
+
+
+source_exc_unpert_masked = np.zeros(num_exc_phy)
+source_exc_pert_0_masked = np.zeros(num_exc_phy)
+source_exc_pert_2_masked = np.zeros(num_exc_phy)
 
 
 x_counter = 0
+
 
 for i in range(N_1s):
         
     if mask_matrix_1s[i] == True:
         
-        source_matrix_1s_masked[x_counter] = source_matrix_1s[i]
+        source_1s_unpert_masked[x_counter] = source_matrix_1s_unpert[i]
+        source_1s_pert_0_masked[x_counter] = source_matrix_1s_pert_0[i]
+        source_1s_pert_2_masked[x_counter] = source_matrix_1s_pert_2[i]
+
         
         x_counter += 1
+
+
 
 
 x_counter = 0
@@ -2230,16 +2431,61 @@ for i in range(N_exc):
         
     if mask_matrix_exc[i] == True:
         
-        source_matrix_exc_masked[x_counter] = source_matrix_exc[i]
+        source_exc_unpert_masked[x_counter] = source_matrix_exc_unpert[i]
+        source_exc_pert_0_masked[x_counter] = source_matrix_exc_pert_0[i]
+        source_exc_pert_2_masked[x_counter] = source_matrix_exc_pert_2[i]
+
         
-        x_counter += 1   
-         
+        x_counter += 1
+        
 
-hdu_source_1s = fits.PrimaryHDU(np.abs(source_matrix_1s_masked))
-hdu_source_1s.writeto("source_1s.fits", overwrite = True)
 
-hdu_source_exc = fits.PrimaryHDU(np.abs(source_matrix_exc_masked))
-hdu_source_exc.writeto("source_exc.fits", overwrite = True)            
+'''
+We will now calculate the density matrix in the steady-state limit. 
+'''
+
+# First, we will calculate the unpreturbed density matrix.
+
+
+matrix_sum = Lambda0_1s_1s_masked - np.dot( Lambda0_1s_exc_masked, np.dot(Lambda0_exc_exc_inv,Lambda0_exc_1s_masked))
+matrix_sum_inv = np.linalg.inv(matrix_sum)
+
+density_1s_unpert = - np.dot( np.dot(matrix_sum_inv,Lambda0_1s_exc_masked), source_exc_unpert_masked)
+density_1s_unpert += - np.dot(matrix_sum_inv,source_1s_unpert_masked)
+
+density_exc_unpert = - np.dot( np.dot( Lambda0_exc_exc_inv, Lambda0_exc_1s_masked), density_1s_unpert)
+density_exc_unpert += - np.dot( Lambda0_exc_exc_inv, source_exc_unpert_masked)
+
+
+
+# Forming fits files from the source function       
+
+hdu_source_1s_unpert = fits.PrimaryHDU(np.abs(source_1s_unpert_masked))
+hdu_source_1s_unpert.writeto("source_1s_unpert.fits", overwrite = True)
+
+hdu_source_1s_pert_0 = fits.PrimaryHDU(np.abs(source_1s_pert_0_masked))
+hdu_source_1s_pert_0.writeto("source_1s_pert_0.fits", overwrite = True)
+
+hdu_source_1s_pert_2 = fits.PrimaryHDU(np.abs(source_1s_pert_2_masked))
+hdu_source_1s_pert_2.writeto("source_1s_pert_2.fits", overwrite = True)
+
+hdu_source_exc_unpert = fits.PrimaryHDU(np.abs(source_exc_unpert_masked))
+hdu_source_exc_unpert.writeto("source_exc_unpert.fits", overwrite = True)
+
+hdu_source_exc_pert_0 = fits.PrimaryHDU(np.abs(source_exc_pert_0_masked))
+hdu_source_exc_pert_0.writeto("source_exc_pert_0.fits", overwrite = True)
+
+hdu_source_exc_pert_2 = fits.PrimaryHDU(np.abs(source_exc_pert_2_masked))
+hdu_source_exc_pert_2.writeto("source_exc_pert_2.fits", overwrite = True)
+
+# Creating a fits file for the density matrix
+
+hdu_density_1s_unpert = fits.PrimaryHDU(np.abs(density_1s_unpert))
+hdu_density_1s_unpert.writeto("density_1s_unpert.fits", overwrite = True)
+
+hdu_density_exc_unpert = fits.PrimaryHDU(np.abs(density_exc_unpert))
+hdu_density_exc_unpert.writeto("density_exc_unpert.fits", overwrite = True)
+        
 
 # First, create a density and source matrix that represents the system
 
