@@ -344,7 +344,7 @@ for i in range(numE):
 
         
                         A_Einstein_array1[i,N,L,j,j_u] = 64*np.pi**4/(3*h*c**3) * freq**3 * ang_prefactor**2 * bf_dipole_array1[N,L]**2
-                        B_Einstein_array1[i,N,L,j,j_u] = 32*np.pi**4/(3*h**2*c**2) * ang_prefactor**2 * bf_dipole_array1[N,L]**2
+                        B_Einstein_array1[i,N,L,j,j_u] = 32*np.pi**4/(3*h**2*c) * ang_prefactor**2 * bf_dipole_array1[N,L]**2
 
 
     for N in range(1,len(bf_dipole_array2),1):
@@ -371,7 +371,7 @@ for i in range(numE):
 
         
                         A_Einstein_array2[i,N,L,j,j_u] = 64*np.pi**4/(3*h*c**3) * freq**3 * ang_prefactor**2 * bf_dipole_array2[N,L]**2
-                        B_Einstein_array2[i,N,L,j,j_u] = 32*np.pi**4/(3*h**2*c**2) * ang_prefactor**2 * bf_dipole_array2[N,L]**2
+                        B_Einstein_array2[i,N,L,j,j_u] = 32*np.pi**4/(3*h**2*c) * ang_prefactor**2 * bf_dipole_array2[N,L]**2
 
 
 def source_boundfree_spontaneous(N, L, j, k, f0, f1, energy_array):
@@ -565,8 +565,9 @@ def boundfree_photoionization(N, L, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_i
             
             term1 = 0
             term2 = 0
-                       
-            prefactor = Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
+            
+            prefactor = (2*Ju[ju]+1)/(2*J+1)     # Conversiton factor from B(unbound to bound) and B(bound to unbound)                   
+            prefactor *= Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
             prefactor *= (2*J+1)*np.sqrt(3*(2*K+1)*(2*K_prime+1)*(2*Kr+1))
             prefactor *= (-1)**(1+Ju[ju]-I+ F0)
             prefactor *= wigner_6j(J,J,Kr,1,1,Ju[ju])*wigner_3j(K,K_prime,Kr,0,0,0)
@@ -593,6 +594,8 @@ def boundfree_photoionization(N, L, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_i
             for i in range(numE):
                 
                 freq_bf = ( energy_array[i] - energy(N,L,J,I,F0) )/h
+                
+                
                
                 integral += hstep*B_Einstein_array1[i,N,L,j,ju]*rad_field_tensor(Kr, freq_bf, T, pert_index) / np.sqrt(energy_array[i])
 
@@ -635,8 +638,9 @@ def boundfree_photoionization(N, L, J, I, K, K_prime, Kr, F0, F1, F2, F3, pert_i
                     
                 term1 = 0
                 term2 = 0
-                       
-                prefactor = Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
+                   
+                prefactor = (2*Ju[ju]+1)/(2*J+1) #factor to go from B(unbound->bound) to B(bound->unbound)
+                prefactor *= Bohr_radius*np.sqrt(m_electron/(2*hbar**2))
                 prefactor *= (2*J+1)*np.sqrt(3*(2*K+1)*(2*K_prime+1)*(2*Kr+1))
                 prefactor *= (-1)**(1+Ju[ju]-I+ F0)
                 prefactor *= wigner_6j(J,J,Kr,1,1,Ju[ju]) * wigner_3j(K,K_prime,Kr,0,0,0)
@@ -1898,13 +1902,18 @@ for N0 in range(1, numN+1):
                                                             
                                                             print("photoionization_unpert: " + str(photo_unpert), file=output_file)
                                                             print("photoionization_pert_0: " + str(photo_pert_0), file=output_file)
+                                                            
+                                                            
                                                          
                                                             #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total
                                                             #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0
 
-                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total - photo_unpert
-                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0 - photo_pert_0
-                                                            
+                                                            #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total - photo_unpert
+                                                            #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0 - photo_pert_0
+ 
+                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - photo_unpert
+                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - photo_pert_0
+ 
                                                         if Kr==2:
                                                             
                                                             RA_pert_2 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
@@ -1918,7 +1927,8 @@ for N0 in range(1, numN+1):
                                                             print("photoionization_pert_2: " + str(photo_pert_2), file=output_file)
 
                                                             #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 -
-                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 - photo_pert_2
+                                                            #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 - photo_pert_2
+                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - photo_pert_2
                                                             
                                                         print(" ", file = output_file)
                                                         print("Lambda0: "+str(Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)
@@ -1946,27 +1956,28 @@ for N0 in range(1, numN+1):
                                                                 print("TA_pert_0: "+str(TA_pert_0), file=output_file)
                                                                 print("TS_pert_0: "+str(TS_pert_0), file=output_file)
                                                             
+                                                                '''
                                                                 if N1 < N0:
                                                                     Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_unpert
                                                                     L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_0
                                                                 elif N1 > N0:
                                                                     Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TE_total + TS_unpert
                                                                     L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_0
-                                                                    
+                                                                '''                                                                    
                                                             elif Kr == 2:
-                                                            
+                                                                
                                                                 TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                                 TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
  
                                                                 
                                                                 print("TA_pert_2: "+str(TA_pert_2), file=output_file)
                                                                 print("TS_pert_2: "+str(TS_pert_2), file=output_file)    
-                                                                
+                                                                '''                                                                
                                                                 if N1 < N0:
                                                                     L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_2
                                                                 elif N1 > N0:
                                                                     L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_2
-                                                                    
+                                                                '''                                                                    
                                                             print("", file = output_file)
                                                             print("Lambda0: "+str(Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)
                                                             print("L0: "+str(L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3]), file=output_file)                                                                                                                        
