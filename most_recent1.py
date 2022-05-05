@@ -1123,13 +1123,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, o
         elif K0==0 and K0==K1 and freq > 0 and pert_index == True:
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
             term += - (1-P_esc)*( weight*phase_space - alpha_0*energy_exponential / beta_0_abs )*Hubble_pert(0, Hubble_param, Phi, Psi_dot, baryon_vel, shear_33)
-   	'''         
-	elif K0 == 2 and K0 == K1 and freq > 0 and pert_index == True:
-	    term  = np.sqrt(2)*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_2 / (h*c)**2
-	    term += (1-P_esc)*(weight*phase_space - alpha_0*energy_exponential/beta_0_abs) * Hubble_pert(2, Hubble_param, Phi, Psi_dot, baryon_vel, shear_33)
-	    term += - (7/10)*(1-P_esc)*(alpha_0*energy_exponential/beta_0_abs)*(beta_2_abs/(beta_0_ab-beta_0_stim))
-	    term += (7/10)*(1-P_esc)*(beta_2_abs/ (beta_0_abs-beta_0_stim))
- 	'''           
+       
         else:
             term = 0
             #print("else term")
@@ -1182,7 +1176,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, o
         beta_sum = 1
         alpha_sum = 1
         
-        energy_exponential = np.exp( - (energy_noF(N_u,_u1_J_u) - energy_noF(N_l,L_l,J_l) ) / kB*T) * np.sqrt( (2*F_l+1) / (2*F_u+1) )       
+        energy_exponential = np.exp( - (energy_noF(N_u,L_u,J_u) - energy_noF(N_l,L_l,J_l) ) / kB*T) * np.sqrt( (2*F_l+1) / (2*F_u+1) )       
         
         if K0==0 and K0 == K1 and freq > 0 and pert_index == False:
             term = P_esc*weight*phase_space
@@ -1192,13 +1186,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, o
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
             term += - (1-P_esc)*(weight*phase_space -alpha_0*energy_exponential/beta_0_abs)*Hubble_pert(0, Hubble_param, Phi, Psi_dot, baryon_vel, shear_33)
 
-	'''            
-	elif K0 == 2 and K0 == K1 and freq > 0 and pert_index == True:
-	    term  = np.sqrt(2)*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_2 / (h*c)**2
-	    term += (1-P_esc)*(weight*phase_space - alpha_0*energy_exponential/beta_0_abs) * Hubble_pert(2, Hubble_param, Phi, Psi_dot, baryon_vel, shear_33)
-	    term += (7/10)*(1-P_esc)*(alpha_0*energy_exponential/beta_0_abs)*(alpha_2/alpha_0 - beta_2_stim/(beta_0_abs-beta_0_stim))
-	    term +=  - (7/10)*(1-P_esc)*(beta_2_stim/beta_0_stim)
-	'''		
+	
 		
 		
 
