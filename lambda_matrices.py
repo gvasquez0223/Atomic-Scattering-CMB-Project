@@ -143,6 +143,7 @@ t_b = tk_array[kline][13]
 shear_g = tk_array[kline][16]
 pol_0 = tk_array[kline][17]
 pol_2 = tk_array[kline][18]
+shear_33 = 0
 
 print(wave_num)
 print(delta_g)
@@ -1037,7 +1038,7 @@ def Hubble_pert(K,Hubble_param, Psi,Phi_dot,baryon_vel, shear_33):
     
     return term
 
-def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H_param, Psi, Phi_dot, t_b,shear_g,optical_depth, pert_index ):
+def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H_param, Psi, Phi_dot, t_b,shear_33,optical_depth, pert_index ):
 
     term = 0
     
@@ -1063,7 +1064,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         phase_deriv = -np.exp(-x)/(1-np.exp(-x))**2
         
 
-    if N0 > N1 and N1 > 0:
+    if N0 > N1 and N1 > 0 and N0 == 2:
         
         N_u = N0
         L_u = L0
@@ -1120,7 +1121,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
             
         elif K0==0 and K0==K1 and freq > 0 and pert_index == True:
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*( weight*phase_space - alpha_0*energy_exponential / beta_0_abs )*Hubble_pert(0, H_param, psi, phi_dot, t_b, shear_g)
+            term += - (1-P_esc)*( weight*phase_space - alpha_0*energy_exponential / beta_0_abs )*Hubble_pert(0, H_param, psi, phi_dot, t_b, shear_33)
        
         else:
             term = 0
@@ -1129,7 +1130,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         
         
             
-    elif N0 < N1 and N0 > 0:
+    elif N0 < N1 and N0 > 0 and N1 == 2:
         
         N_u = N1
         L_u = L1
@@ -1182,7 +1183,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
             
         elif K0 == 0 and K0 == K1 and freq > 0 and pert_index == True:
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*(weight*phase_space -alpha_0*energy_exponential/beta_0_abs)*Hubble_pert(0, H_param, Psi, Phi_dot, t_b, shear_g)
+            term += - (1-P_esc)*(weight*phase_space -alpha_0*energy_exponential/beta_0_abs)*Hubble_pert(0, H_param, Psi, Phi_dot, t_b, shear_33)
 
 	
 		
@@ -2180,9 +2181,9 @@ for N0 in range(1, numN+1):
                                                                 TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                                 TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
 
-                                                                Lymann_unpert = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_g, optical_depth, False)
+                                                                Lymann_unpert = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_33, optical_depth, False)
 
-                                                                Lymann_pert_0 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_g, optical_depth, True)  
+                                                                Lymann_pert_0 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_33, optical_depth, True)  
 
                                                                 print("TA_unpert: "+str(TA_unpert), file=output_file)
                                                                 print("TS_unpert: "+str(TS_unpert), file=output_file)
