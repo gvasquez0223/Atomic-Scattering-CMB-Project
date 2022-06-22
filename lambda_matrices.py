@@ -114,25 +114,28 @@ while found_zline == False:
 	if found_zline == False:		
 		redshift = input("Redshift not found. Please input a new redshift: ")
 
-'''
+
 # If synchronous gauge is chosen
 	
-wave_num = tk_array[k_counter][0]
-delta_g = tk_array[k_counter][1]
-phi = tk_array[k_counter][7]
-psi = tk_array[k_counter][8]
-h_det = tk_array[k_counter][10]
-eta = tk_array[k_counter][11]
-t_g = tk_array[k_counter][15]
-t_b = tk_array[k_counter][16]
-shear_g = tk_array[k_counter][18]
-pol_0 = tk_array[k_counter][19]
-pol_2 = tk_array[k_counter][20]
-psi_dot = tk_array[k_counter][21]
-'''
+wave_num = tk_array[kline][0]
+delta_g = tk_array[kline][1]
+phi = tk_array[kline][7]
+psi = tk_array[kline][8]
+h_ = tk_array[kline][9]
+h_prime = tk_array[kline][10]
+eta = tk_array[kline][11]
+eta_prime = tk_array[kline][12]
+t_g = tk_array[kline][15]
+t_b = tk_array[kline][16]
+shear_g = tk_array[kline][18]
+pol_0 = tk_array[kline][19]
+pol_2 = tk_array[kline][20]
+
+
 
 # If newtonian gauge is chosen
 
+'''
 wave_num = tk_array[kline][0] 
 delta_g = tk_array[kline][1]
 phi = tk_array[kline][7]
@@ -155,6 +158,8 @@ print(shear_g)
 print(pol_0)
 print(pol_2)
 
+'''
+
 Theta_0 = delta_g
 Theta_2 = 2*shear_g
 
@@ -170,7 +175,7 @@ optical_depth = -np.log(thermo_array[zline][4])
 
 conform_time = conform_time * (3.0824e24) / c # Conversion to seconds	
 				
-# Calculate what the Hubble parameter is
+# Calculate what the Hubble parameter based on Plack 2018 best fit values.
 
 omega_R = 9.2364e-5
 omega_M = 0.321
@@ -1022,23 +1027,23 @@ def dipole_element(n0, n1, L0, L1, J0, J1):
     return Bohr_radius*e0*term 
 
 
-def Hubble_pert(K,Hubble_param, Psi,Phi_dot,baryon_vel, shear_33):
+def Hubble_pert(K, h, h_prime, eta, baryon_vel):
         
     #cov_velocity = baryon_vel/3 - Hubble_param*Phi - Psi_dot
-    cov_velocity = baryon_vel/3 - Hubble_param*Psi - Phi_dot
+    cov_velocity = baryon_vel/3 + h_prime/6
+    shear_33 = 2*(h + 6*eta)/3
     
     
     if K == 0:
         term = cov_velocity
     elif K == 2:
-        #term = (shear_33 - cov_velocity) / (10*np.sqrt(2))
-        term = 0
+        term = (shear_33 - cov_velocity) / (10*np.sqrt(2))
     else:
         term = 0
     
     return term
 
-def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H_param, Psi, Phi_dot, t_b,shear_33,optical_depth, pert_index ):
+def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, h, h_prime, eta, t_b,optical_depth, pert_index ):
 
     term = 0
     
@@ -1064,7 +1069,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         phase_deriv = -np.exp(-x)/(1-np.exp(-x))**2
         
 
-    if N0 > N1 and N1 > 0 and N0 == 2:
+    if N0 == 2 and N1 == 1:
         
         N_u = N0
         L_u = L0
@@ -1088,22 +1093,22 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         
         alpha_0 = 2*h*freq**3/c**2
         alpha_0 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_0 *= (-1)**(1-J_u+I+F_l_prime) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
+        alpha_0 *= (-1)**(1-J_l+I+F_u) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
         alpha_0 *= np.float( wigner_6j(J_u, J_u,0,F_u, F_u_prime, I)*wigner_6j(1,1,0,J_u, J_u, J_l))
         #print("alpha_0:", alpha_0)
 
         alpha_2 = 2*h*freq**3/c**2
         alpha_2 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_2 *= (-1)**(1-J_u+I+F_l_prime) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
+        alpha_2 *= (-1)**(1-J_l+I+F_u) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
         alpha_2 *= np.float( wigner_6j(J_u, J_u,2,F_u, F_u_prime, I)*wigner_6j(1,1,2,J_u, J_u, J_l))
         
         beta_0_abs = (2*J_l+1)*B_Einstein_abs
-        beta_0_abs *= (-1)**(1+J_l + I + F_u) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
+        beta_0_abs *= (-1)**(1+J_u + I + F_l_prime) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
         beta_0_abs *= np.float( wigner_6j(J_l, J_l,0,F_l, F_l_prime, I)*wigner_6j(1,1,0,J_l, J_l, J_u))
         #print("beta_0_abse:", beta_0_abs)
         
         beta_2_abs = (2*J_l+1)*B_Einstein_abs
-        beta_2_abs *= (-1)**(1+J_l + I + F_u) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
+        beta_2_abs *= (-1)**(1+J_u + I + F_l_prime) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
         beta_2_abs *= np.float( wigner_6j(J_l, J_l,2,F_l, F_l_prime, I)*wigner_6j(1,1,2,J_l, J_l, J_u))
                 
         beta_0_stim = c**2 * alpha_0 / (2*h*freq**3)
@@ -1112,17 +1117,20 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         beta_sum = 1
         alpha_sum = 1
         
-        energy_exponential = np.exp( - (energy_noF(N_u,L_u,J_u) - energy_noF(N_l,L_l,J_l) ) / kB*T) * np.sqrt( (2*F_l+1) / (2*F_u+1) ) 
+        energy_exponential = np.exp( - (energy_noF(N_u,L_u,J_u) - energy_noF(N_l,L_l,J_l) ) / kB*T) * np.sqrt( (2*F_l+1) / (2*F_u+1) )
+        
+        # We wish to compute the alpha_0/beta_0 term to 0th order assuming thermal equilibrium
+        
+         
                    
         
         if K0==0 and K0==K1 and freq > 0 and pert_index == False:
             term = P_esc*weight*phase_space
-            term += (1-P_esc)*alpha_0*energy_exponential/beta_0_abs
+            term += (1-P_esc)*weight*energy_exponential
             
         elif K0==0 and K0==K1 and freq > 0 and pert_index == True:
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*( weight*phase_space - alpha_0*energy_exponential / beta_0_abs )*Hubble_pert(0, H_param, psi, phi_dot, t_b, shear_33)
-       
+            term += - (1-P_esc)*( weight*phase_space - weight*energy_exponential)*Hubble_pert(0, h, h_prime, eta, t_b)
         else:
             term = 0
             #print("else term")
@@ -1130,7 +1138,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
         
         
             
-    elif N0 < N1 and N0 > 0 and N1 == 2:
+    elif N1 == 2 and N0 == 1:
         
         N_u = N1
         L_u = L1
@@ -1183,7 +1191,7 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, H
             
         elif K0 == 0 and K0 == K1 and freq > 0 and pert_index == True:
             term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*(weight*phase_space -alpha_0*energy_exponential/beta_0_abs)*Hubble_pert(0, H_param, Psi, Phi_dot, t_b, shear_33)
+            term += - (1-P_esc)*(weight*phase_space -alpha_0*energy_exponential/beta_0_abs)*Hubble_pert(0, h, h_prime, eta, t_b)
 
 	
 		
@@ -2181,9 +2189,9 @@ for N0 in range(1, numN+1):
                                                                 TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                                 TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
 
-                                                                Lymann_unpert = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_33, optical_depth, False)
+                                                                Lymann_unpert = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, h, h_prime, eta, t_b, optical_depth, False)
 
-                                                                Lymann_pert_0 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, H_param, psi, phi_dot, t_b, shear_33, optical_depth, True)  
+                                                                Lymann_pert_0 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, h, h_prime, eta, t_b, optical_depth, True)  
 
                                                                 print("TA_unpert: "+str(TA_unpert), file=output_file)
                                                                 print("TS_unpert: "+str(TS_unpert), file=output_file)
@@ -2195,25 +2203,23 @@ for N0 in range(1, numN+1):
                                                                 print("Lymann_unpert: "+str(Lymann_unpert), file=output_file)
                                                                 print("Lymann_pert_0: "+str(Lymann_pert_0), file=output_file)
                                                             
-                                                                '''
-                                                                if N1 < N0:
-                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_unpert + Lymann_unpert
-                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_0 + Lymann_pert_0
-                                                                elif N1 > N0:
-                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TE_total + TS_unpert + Lymann_unpert
-                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_0 + Lymann_pert_0
-                                                                '''
+                                                            
                                                                     
                                                                 # Version that just gives you Lymann line contribution
-                                                                
-                                                                
-
+                                                             
+                                                                 
                                                                 if N1 < N0:
-                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_unpert
-                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_pert_0
+                                                                    #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_unpert
+                                                                    #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_pert_0
+                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_unpert + Lymann_unpert
+                                                                    #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TA_pert_0 + Lymann_pert_0
                                                                 elif N1 > N0:
-                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_unpert
-                                                                    L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_pert_0   
+                                                                    #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_unpert
+                                                                    #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_pert_0
+                                                                    Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TE_total + TS_unpert + Lymann_unpert
+                                                                    #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += TS_pert_0 + Lymann_pert_0                                                                
+                                                             
+                                                             	  
                                                                                                                           
                                                                 
                                                                                                                                    
