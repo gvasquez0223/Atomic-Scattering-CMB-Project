@@ -66,7 +66,7 @@ wave_num = np.float(sys.argv[2])
 
 print(redshift)
 
-thermo_array = np.loadtxt(open("thermodynamics.dat"))
+thermo_array = np.loadtxt(open("thermo.dat"))
 tk_array = np.loadtxt(open("tk_z="+str(redshift)+".dat"))
 
 found_kline = False # Boolian for finding line in CLASS file
@@ -120,6 +120,7 @@ while found_zline == False:
 	
 wave_num = tk_array[kline][0]
 delta_g = tk_array[kline][1]
+delta_b = tk_array[kline][2]
 phi = tk_array[kline][7]
 psi = tk_array[kline][8]
 h_scalar = tk_array[kline][9]
@@ -130,7 +131,7 @@ t_g = tk_array[kline][15]
 t_b = tk_array[kline][16]
 shear_g = tk_array[kline][18]
 pol_0 = tk_array[kline][19]
-pol_2 = tk_array[kline][20]
+#pol_2 = tk_array[kline][20]
 
 
 
@@ -1046,134 +1047,42 @@ def Hubble_pert(K, h_scalar, h_prime, eta_scalar, baryon_vel):
     #cov_velocity = baryon_vel/3 - Hubble_param*Phi - Psi_dot
     cov_velocity = baryon_vel/3 + h_prime/6
     shear_33 = 2*(h_scalar + 6*eta_scalar)/3
-    
-    
+        
     if K == 0:
         term = cov_velocity
     elif K == 2:
-        term = (shear_33 - cov_velocity) / (10*np.sqrt(2))
+        term = shear_33
     else:
         term = 0
     
     return term
 
-def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, h_scalar, h_prime, eta_scalar, t_b,optical_depth, pert_index ):
-
-    term = 0
+def Lambda_Lymann_lines(N0,N1,L0,L1,J0,J1,K0,K1,K_r,F0,F1,F2,F3,T,h_scalar,h_prime,eta_scalar,t_b, optical_depth,pert_index):
     
-    # Calculating the Lya escape probability
-
-    tau = optical_depth
-    P_esc = 1/tau # Approximately true if tau >> 1 which is true during recombination.
+    term = 0 # initial value
     
-          
-
-    if N0 == 2 and L0 == 1 and N1 == 1 and L1 == 0:
-
-    		
-        N_u = N0
-        L_u = L0
-        J_u = J0
-        F_u = F0
-        F_u_prime = F1
-        
-        N_l = N1
-        L_l = L1
-        J_l = J1
-        F_l = F2
-        F_l_prime = F3
-
-        
-        freq = energy_noF(N0,L0,J0) - energy_noF(N1, L1, J1)
-        freq = np.abs(freq)/h
-        
-        weight = 2*h*freq**3/c**2
-        x = h*freq/(kB*T)
-        
-        if x > 0:
-        	phase_space = np.exp(-x)/(1-np.exp(-x))
-        	phase_deriv = - np.exp(-x)/(1-np.exp(-x))**2
-                
-        
-        B_Einstein_stim = 32*np.pi**4 / (3*h**2*c)
-        B_Einstein_stim *= np.abs( dipole_element(N_l, N_u, L_l, L_u, J_l, J_u) )**2
- 
-        B_Einstein_abs = 32*np.pi**4 / (3*h**2*c)
-        B_Einstein_abs *= np.abs( dipole_element(N_u, N_l, L_u, L_l, J_u, J_l) )**2
-        ##### Portion of code that calculates the alpha and beta functions ##############
-        
-        alpha_0 = 2*h*freq**3/c**2
-        alpha_0 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_0 *= (-1)**(1-J_l+I+F_u) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
-        alpha_0 *= np.float( wigner_6j(J_u, J_u,0,F_u, F_u_prime, I)*wigner_6j(1,1,0,J_u, J_u, J_l))
-        #print("alpha_0:", alpha_0)
-
-        alpha_2 = 2*h*freq**3/c**2
-        alpha_2 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_2 *= (-1)**(1-J_l+I+F_u) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
-        alpha_2 *= np.float( wigner_6j(J_u, J_u,2,F_u, F_u_prime, I)*wigner_6j(1,1,2,J_u, J_u, J_l))
-        
-        beta_0_abs = (2*J_l+1)*B_Einstein_abs
-        beta_0_abs *= (-1)**(1+J_u + I + F_l_prime) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
-        beta_0_abs *= np.float( wigner_6j(J_l, J_l,0,F_l, F_l_prime, I)*wigner_6j(1,1,0,J_l, J_l, J_u))
-        #print("beta_0_abse:", beta_0_abs)
-        
-        beta_2_abs = (2*J_l+1)*B_Einstein_abs
-        beta_2_abs *= (-1)**(1+J_u + I + F_l_prime) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
-        beta_2_abs *= np.float( wigner_6j(J_l, J_l,2,F_l, F_l_prime, I)*wigner_6j(1,1,2,J_l, J_l, J_u))
-                
-        beta_0_stim = c**2 * alpha_0 / (2*h*freq**3)
-        beta_2_stim = c**2 * alpha_2 / (2*h*freq**3)
-        
-        beta_sum = 1
-        alpha_sum = 1
-
-
-        #norm_factor = h*freq*num_H_tot/(4*np.pi)
-        norm_factor = 1
-        
-                
-        energy_exponential = np.exp( - (energy_noF(N_u,L_u,J_u) - energy_noF(N_l,L_l,J_l) ) / (kB*T)) 
-        
-        # We wish to compute the alpha_0/beta_0 term to 0th order assuming thermal equilibrium
-        
-         
-                   
-        
-        if K0==0 and K0==K1 and freq > 0 and pert_index == False:
-            term = P_esc*weight*phase_space
-            term += (1-P_esc)*weight*energy_exponential
-            
-        elif K0==0 and K0==K1 and freq > 0 and pert_index == True:
-            term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*( weight*phase_space - weight*energy_exponential)*Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b)
-        elif K0==2 and K0==K1 and freq > 0 and pert_index == True:
-            term = P_esc*np.sqrt(2)*(kB*T)**3 * x**4 * phase_deriv * Theta_2 / (h*c)**3
-            term += (1-P_esc) * ( weight*phase_space - weight*energy_exponential) * Hubble_pert(2, h_scalar, h_prime, eta_scalar, t_b) / (10*np.sqrt(2))
-            term += - 7*(1-P_esc)*beta_2_abs / ( 10*B_Einstein_abs*(1-x_e)*norm_factor )
-            term +=  - 7*(1-P_esc)*weight*energy_exponential * beta_2_abs / (10*B_Einstein_abs*(1-x_e)*norm_factor)       	
-        else:
-            term = 0
-            #print("else term")
-
-        
-        
-            
-    elif N1 == 2 and L1 == 1 and N0 == 1 and L0 == 0:
+    P_esc = 1/optical_depth # Approximately true during recombination.
+    
+    x_1s = 1-x_e # Just to see if we are getting appropriate values, I am setting this to 0th order.
+    
+    if N0==1 and L0==0 and N1==2 and L1==1
+    :
         
         N_u = N1
         L_u = L1
         J_u = J1
         F_u = F2
         F_u_prime = F3
+        K_u = K1
         
-        N_l = N0
-        L_l = L0
-        J_l = J0
-        F_l = F0
-        F_l_prime = F1
-
-        freq = energy_noF(N0,L0,J0) - energy_noF(N1, L1, J1)
+        N = N0
+        L = L0
+        J = J0
+        F = F0
+        F_prime = F1
+        K = K0
+        
+        freq = energy_noF(N_u,L_u,J_u) - energy_noF(N, L, J)
         freq = np.abs(freq)/h
         
         weight = 2*h*freq**3/c**2
@@ -1182,65 +1091,186 @@ def Lymann_rad_field_tensor(N0, N1, L0, L1, J0, J1, K0, K1, F0, F1, F2, F3, T, h
         if x > 0:
         	phase_space = np.exp(-x)/(1-np.exp(-x))
         	phase_deriv = - np.exp(-x)/(1-np.exp(-x))**2
-        
 
-    	 	
-    	 	       
+
+        energy_exponential = np.exp(-x) # Boltzman exponential from n=2 to n=1
+        
         B_Einstein_stim = 32*np.pi**4 / (3*h**2*c)
-        B_Einstein_stim *= np.abs( dipole_element(N_l, N_u, L_l, L_u, J_l, J_u) )**2
- 
-        B_Einstein_abs = 32*np.pi**4 / (3*h**2*c)
-        B_Einstein_abs *= np.abs( dipole_element(N_u, N_l, L_u, L_l, J_u, J_l) )**2
-        ##### Portion of code that calculates the alpha and beta functions ##############
-        
-        alpha_0 = 2*h*freq**3/c**2
-        alpha_0 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_0 *= (-1)**(1-J_u+I+F_l_prime) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
-        alpha_0 *= np.float( wigner_6j(J_u, J_u,0,F_u, F_u_prime, I)*wigner_6j(1,1,0,J_u, J_u, J_l))
+        B_Einstein_stim *= np.abs( dipole_element(N, N_u, L, L_u, J, J_u) )**2
+        A_Einstein = weight*B_Einstein_stim
 
-        alpha_2 = 2*h*freq**3/c**2
-        alpha_2 *= (2*J_u + 1)*B_Einstein_stim
-        alpha_2 *= (-1)**(1-J_u+I+F_l_prime) * np.sqrt(3*(2*F_u+1)*(2*F_u_prime+1))
-        alpha_2 *= np.float( wigner_6j(J_u, J_u,2,F_u, F_u_prime, I)*wigner_6j(1,1,2,J_u, J_u, J_l))
-        
-        beta_0_abs = (2*J_l+1)*B_Einstein_abs
-        beta_0_abs *= (-1)**(1+J_l + I + F_u) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
-        beta_0_abs *= np.float( wigner_6j(J_l, J_l,0,F_l, F_l_prime, I)*wigner_6j(1,1,0,J_l, J_l, J_u))
-        
-        beta_2_abs = (2*J_l+1)*B_Einstein_abs
-        beta_2_abs *= (-1)**(1+J_l + I + F_u) * np.sqrt(3*(2*F_l+1)*(2*F_l_prime+1))
-        beta_2_abs *= np.float( wigner_6j(J_l, J_l,2,F_l, F_l_prime, I)*wigner_6j(1,1,2,J_l, J_l, J_u))
-                
-        beta_0_stim = c**2 * alpha_0 / (2*h*freq**3)
-        beta_2_stim = c**2 * alpha_2 / (2*h*freq**3)
-        
-        beta_sum = 1
-        alpha_sum = 1
-        
-        #norm_factor = h*freq*num_H_tot/(4*np.pi)
-        norm_factor = 1
-        
-        energy_exponential = np.exp( - (energy_noF(N_u,L_u,J_u) - energy_noF(N_l,L_l,J_l) ) / (kB*T))   
-        
-        if K0==0 and K0 == K1 and freq > 0 and pert_index == False:
-            term = P_esc*weight*phase_space
-            term += (1-P_esc)*weight*energy_exponential
-             
-        elif K0 == 0 and K0 == K1 and freq > 0 and pert_index == True:
-            term = - 2*P_esc*(kB*T)**3 * x**4 * phase_deriv * Theta_0 / (h*c)**2
-            term += - (1-P_esc)*(weight*phase_space - weight*energy_exponential)*Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b)
-
-        elif K0==2 and K0==K1 and freq > 0 and pert_index == True:
-            term = P_esc*np.sqrt(2)*(kB*T)**3 * x**4 * phase_deriv * Theta_2 / (h*c)**3
-            term += (1-P_esc) * ( weight*phase_space - weight*energy_exponential) * Hubble_pert(2, h_scalar, h_prime, eta_scalar, t_b) / (10*np.sqrt(2))
-            term +=  7*(1-P_esc)*( alpha_2/(B_Einstein_abs*(1-x_e)*norm_factor) + weight*energy_exponential*beta_2_stim / (B_Einstein_abs*(1-x_e)*norm_factor) )
-            term += 7*(1-P_esc)*beta_2_stim/(B_Einstein_abs*(1-x_e)*norm_factor)
-		
-
-        else: 
+        if K==K_u and F==F_prime and freq > 0 and pert_index == False:
+            
+            term = (2*J_u+1)*(2*F+1)*np.sqrt((2*F_u+1)*(2*F_u_prime+1))
+            term *= np.float( wigner_6j(F,F,K,F_u,F_u_prime,1)*wigner_6j(J_u,0.5,1,F,F_u,0.5)*wigner_6j(J_u,0.5,1,F,F_u_prime,0.5))
+            term *= A_Einstein
+            
+        else:
             term = 0
             
+    if N0 == 1 and L0 == 0 and N1==1 and L1==0 and J0==J1:
+        
+        N = N0
+        L = L0
+        J = J0
+        F = F0
+        F_prime = F1
+        K = K0
+        
+        
+        freq = energy_noF(2,1,0.5) - energy_noF(1, 0, 0.5)
+        freq = np.abs(freq)/h
+        
+        weight = 2*h*freq**3/c**2
+        x = h*freq/(kB*T)
+        
+        if x > 0:
+        	phase_space = np.exp(-x)/(1-np.exp(-x))
+        	phase_deriv = - np.exp(-x)/(1-np.exp(-x))**2
+
+
+        energy_exponential = np.exp(-x) # Boltzman exponential from n=2 to n=1
+        
+        B_stim_sum = 0
+        
+        for counter in range(2):
+            
+            J_u = 0.5 + counter # J_u = 1/2, 3/2
+            B_Einstein_stim = 32*np.pi**4 / (3*h**2*c)
+            B_Einstein_stim *= np.abs( dipole_element(1, 2, 0, 1, 0.5, J_u) )**2
+            B_stim_sum += B_Einstein_stim            
+
+        if K==K1 and F==F2 and F_prime==F3 and K_r == 0 and pert_index == False:
+            
+            term1 = P_esc*weight*phase_space # Unperturbed blackbody term in radiation field.
+            term2 = (1-P_esc)*weight*energy_exponential # Unperturbed source term in radiation field
+            
+            term = -B_stim_sum*(term1+term2)
+            
+        elif K==K1 and F==F2 and F_prime==F3 and K_r == 0 and pert_index == True:
+            
+            term1 = -2*P_esc*(kB*T)**3*x**4*phase_deriv*Theta_0/(h*c)**2
+            term2 = P_esc*weight*energy_exponential*delta_b/x_1s
+            term3 = P_esc*(weight*phase_space -weight*energy_exponential)*Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b)
+            
+            term = -B_stim_sum*(term1+term2+term3)
+            
+        else:
+            term = 0
+ 
+    if N0 == 2 and L0 == 1 and N1==2 and L1==1 and J0==J1:
+        
+        N = N0
+        L = L0
+        J = J0
+        F = F0
+        F_prime = F1
+        K = K0
+        
+        
+        freq = energy_noF(2,1,J1) - energy_noF(1, 0, 0.5)
+        freq = np.abs(freq)/h
+        
+        weight = 2*h*freq**3/c**2
+        x = h*freq/(kB*T)
+        
+        if x > 0:
+        	phase_space = np.exp(-x)/(1-np.exp(-x))
+        	phase_deriv = - np.exp(-x)/(1-np.exp(-x))**2
+
+
+        energy_exponential = np.exp(-x) # Boltzman exponential from n=2 to n=1
+        
+        B_Einstein_stim = 32*np.pi**4 / (3*h**2*c)
+        B_Einstein_stim *= np.abs( dipole_element(1, 2, 0, 1, 0.5, J) )**2
+        A_Einstein = weight*B_Einstein_stim
+              
+
+        if K==K1 and F==F2 and F_prime==F3 and K_r == 0 and pert_index == False:
+            
+            term = A_Einstein
+            
+        else:
+            term = 0
+
+    if N0==2 and L0==1 and N1==1 and L1==0:
+        
+        N = N0
+        L = L0
+        J = J0
+        F = F0
+        F_prime = F1
+        K = K0
+        
+        N_l = N1
+        L_l = L1
+        J_l = J1
+        F_l = F2
+        F_l_prime = F3
+        K_l = K1
+        
+        freq = energy_noF(N,L,J) - energy_noF(N_l, L_l, J_l)
+        freq = np.abs(freq)/h
+        
+        weight = 2*h*freq**3/c**2
+        x = h*freq/(kB*T)
+        
+        if x > 0:
+        	phase_space = np.exp(-x)/(1-np.exp(-x))
+        	phase_deriv = - np.exp(-x)/(1-np.exp(-x))**2
+
+
+        energy_exponential = np.exp(-x) # Boltzman exponential from n=2 to n=1
+        
+        B_Einstein_abs = 32*np.pi**4 / (3*h**2*c)
+        B_Einstein_abs *= np.abs( dipole_element(N, N_l, L, L_l, J, J_l) )**2
+
+        if K==K_l and F_l==F_l_prime and K_r==0 and pert_index == False:
+            
+            term = B_Einstein_abs
+            term *= 2*np.sqrt(3)*(2*F_l+1)*np.sqrt( (2*F+1)*(2*F_prime+1)*(2*K+1) )
+            term *= np.float(wigner_9j(F,F_l,1,F_prime,F_l,1,K,K,0))
+            term *= np.float( wigner_6j(J,0.5,1,F_l,F,0.5)*wigner_6j(J,0.5,1,F_l,F_prime,0.5) )
+
+            term1 = P_esc*weight*phase_space # Unperturbed blackbody term in radiation field.
+            term2 = (1-P_esc)*weight*energy_exponential # Unperturbed source term in radiation field
+
+            term = term*(term1+term2)            
+            
+        elif K==K_l and F_l==F_l_prime and K_r==0 and pert_index == True:
+            
+            term = B_Einstein_abs
+            term *= 2*np.sqrt(3)*(2*F_l+1)*np.sqrt( (2*F+1)*(2*F_prime+1)*(2*K+1) )
+            term *= np.float(wigner_9j(F,F_l,1,F_prime,F_l,1,K,K,0))
+            term *= np.float( wigner_6j(J,0.5,1,F_l,F,0.5)*wigner_6j(J,0.5,1,F_l,F_prime,0.5) )
+            
+            
+            term1 = -2*P_esc*(kB*T)**3*x**4*phase_deriv*Theta_0/(h*c)**2
+            term2 = P_esc*weight*energy_exponential*delta_b/x_1s
+            term3 = P_esc*(weight*phase_space -weight*energy_exponential)*Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b)
+            
+            term = term*(term1+term2+term3)
+
+        if K==2 and K_l== 0 and F_l==F_l_prime and J == 1.5 and K_r==2 and pert_index == True:
+            
+            term = B_Einstein_abs
+            term *= 2*np.sqrt(15)*(2*F_l+1)*np.sqrt( (2*F+1)*(2*F_prime+1))
+            term *= np.float(wigner_9j(F,F_l,1,F_prime,F_l,1,2,0,0))
+            term *= np.float( wigner_6j(1.5,0.5,1,F_l,F,0.5)*wigner_6j(1.5,0.5,1,F_l,F_prime,0.5) )
+
+            term1 = np.sqrt(2)*P_esc*(kB*T)**3*x**4*phase_deriv*Theta_2/(h*c)**2
+            term2 = 0
+            term3 = (P_esc*weight*phase_space - weight*energy_exponential)*Hubble_pert(2, h_scalar, h_prime, eta_scalar, t_b)
+            
+            term = term*(term1+term2+term3)
+
+        else:
+            term = 0
+            
+
     return term
+             
+
     
     
 '''
@@ -2166,6 +2196,9 @@ for N0 in range(1, numN+1):
                                                             RA_pert_0 = R_A(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             RS_pert_0 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             
+                                                            Lymann_unpert = Lambda_Lymann_lines(N0, N1, l0, l1, J0, J1, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, False)
+                                                            Lymann_pert_0 = Lambda_Lymann_lines(N0, N1, l0, l1, J0, J1, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)
+                                                            
                                                             # Photoionization terms
                                                             
                                                             photo_unpert = boundfree_photoionization(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], False)
@@ -2181,13 +2214,17 @@ for N0 in range(1, numN+1):
                                                             print("photoionization_unpert: " + str(photo_unpert), file=output_file)
                                                             print("photoionization_pert_0: " + str(photo_pert_0), file=output_file)
                                                             
-                                                            
+                                                            print("Lymann_unpert: " + str(Lymann_unpert), file=output_file)
+                                                            print("Lymann_pert_0: " + str(Lymann_pert_0), file=output_file)                                                            
                                                          
                                                             #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total
                                                             #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0
 
-                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total - photo_unpert
-                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0 - photo_pert_0
+                                                            #Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Nhat_total - RA_unpert - RS_unpert - RE_total - photo_unpert - Lymann_unpert
+                                                            #L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += -RA_pert_0 - RS_pert_0 - photo_pert_0 - Lymann_pert_0
+
+                                                            Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - Lymann_unpert
+                                                            L0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - Lymann_pert_0
                                                             
                                                             '''
                                                             Lambda0[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - photo_unpert
@@ -2200,14 +2237,19 @@ for N0 in range(1, numN+1):
                                                             RS_pert_2 = R_S(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                             
                                                             photo_pert_2 = boundfree_photoionization(N0, l0, J0[j0], I, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
+
+                                                            Lymann_pert_2 = Lambda_Lymann_lines(N0, N1, l0, l1, J0, J1, K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)
                                                                                                                         
                                                             print("RA_pert_2: " +str(RA_pert_2), file=output_file)
                                                             print("RS_pert_2: " +str(RS_pert_2), file=output_file)
                                                             
                                                             print("photoionization_pert_2: " + str(photo_pert_2), file=output_file)
+                                                            print("Lymann_pert_2: " + str(Lymann_pert_2), file=output_file)
+                                                            
 
                                                             #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2
-                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 - photo_pert_2
+                                                            #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - RA_pert_2 - RS_pert_2 - photo_pert_2 - Lymann_pert_2
+                                                            L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - Lymann_pert_2                                                            
                                                             #L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += - photo_pert_2
                                                             
                                                         print(" ", file = output_file)
@@ -2229,9 +2271,9 @@ for N0 in range(1, numN+1):
                                                                 TA_pert_0 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                                 TS_pert_0 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
 									
-                                                                Lymann_unpert = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, False)
+                                                                Lymann_unpert = Lambda_Lymann_lines(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, False)
 
-                                                                Lymann_pert_0 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)  
+                                                                Lymann_pert_0 = Lambda_Lymann_lines(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)  
 
                                                                 print("TA_unpert: "+str(TA_unpert), file=output_file)
                                                                 print("TS_unpert: "+str(TS_unpert), file=output_file)
@@ -2271,9 +2313,13 @@ for N0 in range(1, numN+1):
                                                                 TA_pert_2 = T_A(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)
                                                                 TS_pert_2 = T_S(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], True)                                                                                                      
  
-                                                                Lymann_pert_2 = Lymann_rad_field_tensor(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)                                                                 
+                                                                Lymann_pert_2 = Lambda_Lymann_lines(N0, N1, l0, l1, J0[j0], J1[j1], K0, K1, Kr, F0[f0], F1[f1], F2[f2], F3[f3], T, h_scalar, h_prime, eta_scalar, t_b, optical_depth, True)
+                                                                
                                                                 print("TA_pert_2: "+str(TA_pert_2), file=output_file)
-                                                                print("TS_pert_2: "+str(TS_pert_2), file=output_file)    
+                                                                print("TS_pert_2: "+str(TS_pert_2), file=output_file)
+                                                                
+                                                                print("Lymann_pert_2: "+str(Lymann_pert_2), file=output_file)
+                                                                                                                               
                                                                                                                            
                                                                 if N1 < N0 and K0 == 2 and K0 == K1:
                                                                     L2[N0, l0, j0, k0, f0, f1, N1, l1, j1, k1, f2, f3] += Lymann_pert_2                                                             
@@ -2531,7 +2577,7 @@ hdu12.writeto("L2_exc_exc_z="+str(redshift)+".fits", overwrite = True)
 #Lambda0_1s_1s_inv = np.linalg.inv(Lambda0_1s_1s_masked)
 #Lambda0_1s_exc_inv = np.linalg.inv(Lambda0_1s_exc_masked)
 #Lambda0_exc_1s_inv = np.linalg.inv(Lambda0_exc_1s_masked)
-Lambda0_exc_exc_inv = np.linalg.inv(Lambda0_exc_exc_masked)
+#Lambda0_exc_exc_inv = np.linalg.inv(Lambda0_exc_exc_masked)
 
 #L0_1s_1s_inv = np.linalg.inv(L0_1s_1s_masked)
 #L0_1s_exc_inv = np.linalg.inv(L0_1s_exc_masked)
