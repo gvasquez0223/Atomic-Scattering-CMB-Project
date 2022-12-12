@@ -1,4 +1,4 @@
-\import sys
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
@@ -61,7 +61,7 @@ Emax = 100*eV_to_ergs #Pick a maximum energy for free energy of electron
 
 # We want to develop a program where we can index our matrices correctly.
 
-
+def Lymann_l
 '''
 We wish to calculate find the wave number line that is closest to the entered value. This is 
 set by the value of k_error which we set to 1e-3.
@@ -559,8 +559,8 @@ def Lambda_lymann_lines_source(Kr, atomic_var, tk_var, thermo_var, rho_1s, pert_
     sum1s = 0
     
     # Listing all the source terms related to T_A
-
-    if N0==N1 and N0==2 and L0==L1 and L0==1:
+    
+   if N0==N1 and N0==2 and L0==L1 and L0==1:
     
     	sum1s = 0
     	
@@ -573,11 +573,11 @@ def Lambda_lymann_lines_source(Kr, atomic_var, tk_var, thermo_var, rho_1s, pert_
 			dummy_term *= np.float( wigner_6j(J0,0.5,1,F_l,F,0.5)*wigner_6j(J0,0.5,1,F_l_prime,F1,0.5) )
 			
 			if K0 == K1 and K0 == 0 and Kr == 0 and F_l==F_l_prime:
-				dummy_term *= rho_1s[F_l,F_l_prime] / X_1s_tot
+				dummy_term *= rho_1s[F_l,F_l_prime] / X_1s
 			elif K0 == K1 and K0  == 2 and Kr == 0  and F_l == F_l_prime and F_1==1:
-				dummy_term *= rho_1s[2,2] / X_1s_tot
+				dummy_term *= rho_1s[2,2] / X_1s
 			elif K0 == 2 and K1 == 0 and Kr == 2 and F_l == F_l_prime:
-				dummy_term *= rho_1s[F_l,F_l_prime] / X_1s_tot
+				dummy_term *= rho_1s[F_l,F_l_prime] / X_1s
 			else:
 				dummy_term = 0
 				
@@ -585,15 +585,15 @@ def Lambda_lymann_lines_source(Kr, atomic_var, tk_var, thermo_var, rho_1s, pert_
 			
 	if Kr==0 and F0==F1 and F2==F3 and pert_index == False:
 	
-		term = (1-P_esc)*weight*phase_space*B_Einstein_abs/3
+		term = (1-P_esc)*weight*B_Einstein_abs/3
 		term *= 2*np.sqrt(3) * np.sqrt( (2*F0+1)*(2*F1+1) )
 		term *= np.sqrt(2*F2+1)
 		term *= sum1s
 		
 	elif Kr==0 and F0==F1 and F2==F3 and pert_index == True:
-	
-		term = P_esc*( delta_b/X_1s_tot - Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b) )
-		term *= weight*phase_space*B_Einstein_abs/3
+		
+		term = P_esc*( delta_b/X_1s_tot - Hubble_pert(0, h_scalar, h_prime, eta_scalar,t_b) )
+		term *= weight*B_Einstein_abs/3
 		term *= 2*np.sqrt(3) * np.sqrt( (2*F0+1)*(2*F1+1) )
 		term *= np.sqrt(2*F2+1)
 		term *= sum1s
@@ -605,13 +605,52 @@ def Lambda_lymann_lines_source(Kr, atomic_var, tk_var, thermo_var, rho_1s, pert_
 		
 	elif Kr == 2 and K0==2 and K1==2 and F2==F3 and pert_index == True:
 	
-		term = (1-P_esc)*weight*phase_space*B_Einstein_abs/3
+		term = (1-P_esc)*B_Einstein_abs/3
 		term *= Hubble_pert(2,h_scalar,h_prime,eta_scalar, t_b)
 		term *= 14*np.sqrt(15)/3
 		term *= (-1)**F3 * np.sqrt( (2*F2+1)*(2*F3+1) )
 		term *= np.float( wigner_6j(1.5,1.5,2,F3,F2,1) )
-		
-		
+	else:
+		term = 0
+
+    # All the R_A (relaxation absorption terms) are listed below:
+	
+	elif N0==1 and L0==0 and N1==2 and L1==1:       
+        	if Kr==0 and K0==K1 and F0==F2 and F1==F3 and pert_index==False:
+            
+           		term = 0
+            
+            		for j in range(2):
+                
+                		J_u = j + 0.5 
+                
+                		term += 32*np.pi**4/(3*h**2*c**2) * np.abs( dipole_element(N0,N1,L0,L1,J0,J_u))**2
+                		
+                	term *= (1-P_esc)*weight/3
+                	term *= 1/X_1s
+                	term *= np.sqrt(2*F2+1)
+                	
+                elif Kr==0 and K0==K1 and F0==F2 and F1==F3 and pert_index==True:
+                
+           		term = 0
+            
+            		for j in range(2):
+                
+                		J_u = j + 0.5 
+                
+                		term += 32*np.pi**4/(3*h**2*c**2) * np.abs( dipole_element(N0,N1,L0,L1,J0,J_u))**2
+                		
+                	term *= P_esc*weight*( delta_b/X_1s_tot - Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b) )/3
+                	term *= 1/X_1s
+                	term *= np.sqrt(2*F2+1)
+               
+                
+        else:
+            
+            term = 0
+ 
+
+    return term           		
 		
 		
 		
@@ -619,125 +658,7 @@ def Lambda_lymann_lines_source(Kr, atomic_var, tk_var, thermo_var, rho_1s, pert_
 			
 				
 				
-            
-        if Kr==0 and F0==F1 and F2==F3 and pert_index==False:
-        
-        	
-    
-            
-            
-        term = (1-P_esc)*2*weight/3
-        term *= B_Einstein_stim
-        
-
-   
-   # Atomic values
- 
-   N0 = atomic_var[0]
-   L0 = atomic_var[1]    
-   J0 = atomic_var[2]
-   K0 = atomic_var[3]
-   F0 = atomic_var[4]
-   F1 = atomic_var[5]
-   
-   N1 = atomic_var[6]
-   L1 = atomic_var[7]
-   J1 = atomic_var[8]
-   K1 = atomic_var[9]
-   F2 = atomic_var[10]
-   F3 = atomic_var[11]
-
-   # Depending on whether N0>N1 or N0<=N1 we will have different coefficients
-   # that we need to take account of. 
-       
-
-   # T(k) perturbation values
-   
-   wave_num = tk_var[0]
-   delta_g = tk_var[1]
-   delta_b = tk_var[2]
-   phi = tk_var[3]
-   psi = tk_var[4]
-   h_scalar = tk_var[5]
-   h_prime = tk_var[6]
-   eta_scalar = tk_var[7]
-   eta_prime = tk_var[8]
-   t_g = tk_var[9]
-   t_b = tk_var[10]
-   shear_g = tk_var[11]
-   pol_0 = tk_var[12]
-   
-   Theta_0 = delta_g
-   Theta_2 = 2*shear_g
-   
-   # Thermo values
-   
-   redshift = thermo_var[0]
-   T = thermo_var[1]
-   x_e = thermo_var[2]
-   H_param = thermo_var[3]
-   optical_depth = thermo_var[4]
-   num_baryon = thermo_var[5]
-   num_H_tot = thermo_var[6]
-   
-   
-   # Einstein coefficients on whether N0>N1 or N0<N1
-   
-   if N0 > N1:
-   
-       B_Einstein_abs = 32*np.pi**4/(3*h**2*c**2)
-       B_Einstein_abs *= np.abs( dipole_element(N0,N1,L0,L1,J0,J1))**2
-
-   elif N0 < N1:
-       
-       B_Einstein_stim = 32*np.pi**4/(3*h**2*c**2)
-       B_Einstein_stim *= np.abs( dipole_element(N0,N1,L0,L1,J0,J1))**2        
-       A_Einstein = weight*B_Einstein_stim
-           
-    
-               
-            
-            
-            
-    
-            
-        
-            
-            
-            
-            
-            
-        
-    
-
-    # IF/then arguments for different parts of the Lambda matrices
-    
-    if N==2 and N_l==1 and L==1 and L_l==0 and J_l==0.5:
-        
-        if Kr == 0 and K==K_l and F2==F3 and pert_index == False:
-        
-            # Blackbody term: P_esc*B_P(freq_lya,T)
-        
-            term = 
-        
-        elif K0 == 0 and K1 == 0 and Kr == 0 and pert_index == True:
-            
-            # Perturbed K_r=0 Blackbody term
-            
-            term = P_esc*weight*phase_space*Hubble_pert(0, h_scalar, h_prime, eta_scalar, t_b)
-            term += -2*P_esc*(kB*T)**3*x**4*phase_deriv*Theta_0/(h*c)**3
-            
-        elif K0 == 2 and K1==0 and Kr==2 and pert_index == True:
-            
-            # Perturbed K_r=2 Blackbody term
-            
-            term = P_esc*weight*phase_space*Hubble_pert(2, h_scalar, h_prime, eta_scalar, t_b)
-            term += np.sqrt(2)*P_esc*(kB*T)**3*x**4*phase_deriv*Theta_2/(h*c)**2
-            
-        else:
-            
-            term = 0
-            
+          
 
     
         
